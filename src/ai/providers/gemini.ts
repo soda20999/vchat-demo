@@ -1,12 +1,12 @@
-import { GoogleGenerativeAI, type Part } from '@google/generative-ai';
+import {
+  GoogleGenerativeAI,
+  type GenerationConfig,
+  type Part,
+  type ResponseSchema,
+} from '@google/generative-ai';
 import { z } from 'zod';
 import { zodToJsonSchema } from 'zod-to-json-schema';
 import { AIProvider } from '../interface';
-
-type GeminiGenerationConfig = {
-  responseMimeType?: 'application/json';
-  responseSchema?: object;
-};
 
 export class GeminiProvider implements AIProvider {
   private client: GoogleGenerativeAI;
@@ -62,10 +62,12 @@ export class GeminiProvider implements AIProvider {
     onChunk?: (text: string) => void,
     imageUrl?: string
   ): Promise<{ answer: string }> {
-    const generationConfig: GeminiGenerationConfig = {};
+    const generationConfig: GenerationConfig = {};
     if (schema) {
       generationConfig.responseMimeType = 'application/json';
-      generationConfig.responseSchema = zodToJsonSchema(schema);
+      generationConfig.responseSchema = zodToJsonSchema(
+        schema as unknown as Parameters<typeof zodToJsonSchema>[0]
+      ) as ResponseSchema;
     }
 
     const model = this.client.getGenerativeModel({

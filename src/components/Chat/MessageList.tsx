@@ -16,7 +16,7 @@ export const MessageList: React.FC = () => {
   return (
     <div
       ref={scrollContainer}
-      className="message-list h-full overflow-y-auto bg-[#141414] px-8 py-6"
+      className="message-list h-full overflow-y-auto bg-transparent px-8 py-6"
       style={{
         scrollbarWidth: 'none',
         msOverflowStyle: 'none',

@@ -46,7 +46,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message }) => {
         </div>
 
         {isQuestion ? (
-          <div className="max-w-[85%] rounded-3xl rounded-tr-md border border-white/10 bg-[#2a2b2f] px-5 py-3 text-[15px] leading-8 text-white shadow-sm">
+          <div className="w-full max-w-[92%] rounded-3xl rounded-tr-md border border-white/10 bg-[#2a2b2f] px-5 py-3 text-[15px] leading-8 text-white shadow-sm">
             {message.image && (
               <img
                 src={message.image}
@@ -55,7 +55,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message }) => {
               />
             )}
             {message.content && (
-              <div className="whitespace-pre-wrap">{message.content}</div>
+              <div className="whitespace-pre-wrap break-all">{message.content}</div>
             )}
           </div>
         ) : (
