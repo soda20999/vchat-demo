@@ -2,12 +2,9 @@ import { getAIProvider } from '@/ai/provider-factory';
 import * as conversationService from '@/db/service/conversation';
 import * as messageService from '@/db/service/message';
 import * as providerService from '@/db/service/provide';
-import * as userService from '@/db/service/user';
 
 export const runtime = 'nodejs';
 
-const DEFAULT_USER_ID = 'test-user-001';
-const knownUsers = new Set<string>();
 const providerIdCache = new Map<string, number | null>();
 
 interface ChatRequestBody {
@@ -25,32 +22,13 @@ function inferProviderName(model: string) {
 }
 
 function getRequestUserId(request: Request) {
-  return request.headers.get('x-user-id')?.trim() || DEFAULT_USER_ID;
+  return request.headers.get('x-user-id')?.trim() || '';
 }
 
 function buildConversationTitle(content: string, image?: string) {
   if (content) return content.slice(0, 50);
   if (image) return '[Image]';
   return 'New Chat';
-}
-
-async function ensureUserExists(userId: string) {
-  if (knownUsers.has(userId)) return;
-
-  const existingUser = await userService.getUserById(userId);
-  if (existingUser) {
-    knownUsers.add(userId);
-    return;
-  }
-
-  await userService.createUser({
-    id: userId,
-    username: userId,
-    email: `${userId}@local.dev`,
-    password: 'local-dev-password',
-    signature: 'Local development user',
-  });
-  knownUsers.add(userId);
 }
 
 async function getProviderId(providerName: string) {
@@ -77,6 +55,10 @@ export async function POST(request: Request) {
         ? body.conversationId
         : null;
 
+    if (!userId) {
+      return Response.json({ message: 'Unauthorized' }, { status: 401 });
+    }
+
     if (!model) {
       return Response.json({ message: 'Model is required' }, { status: 400 });
     }
@@ -93,11 +75,9 @@ export async function POST(request: Request) {
     }
 
     const provider = getAIProvider(providerName);
-
-    const [, cachedProviderId] = await Promise.all([
-      ensureUserExists(userId),
-      requestedConversationId ? Promise.resolve(null) : getProviderId(providerName),
-    ]);
+    const cachedProviderId = requestedConversationId
+      ? null
+      : await getProviderId(providerName);
 
     let conversation = requestedConversationId
       ? await conversationService.getUserConversation(

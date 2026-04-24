@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "db:push": "drizzle-kit push",
+    "db:seed": "node scripts/db-seed.mjs",
     "db:studio": "drizzle-kit studio"
   },
   "dependencies": {
@@ -17,6 +18,7 @@
     "@radix-ui/react-select": "^2.2.6",
     "ai": "^6.0.168",
     "drizzle-orm": "^0.45.2",
+    "jose": "^6.2.2",
     "markdown-it": "^14.1.1",
     "next": "16.2.4",
     "openai": "^6.34.0",

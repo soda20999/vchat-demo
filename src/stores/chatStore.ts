@@ -3,8 +3,6 @@ import { create } from 'zustand';
 import { LOCAL_PROVIDERS } from '@/config/providers';
 import type { Conversation, Message, Provider } from '@/types';
 
-const TEST_USER_ID = 'test-user-001';
-
 let initializePromise: Promise<void> | null = null;
 let historyRequestId = 0;
 
@@ -20,7 +18,7 @@ interface ChatState {
   currentUserId: string | null;
   selectedModel: string;
   isInitialized: boolean;
-  initialize: (userId: string) => Promise<void>;
+  initialize: () => Promise<void>;
   sendMessage: (payload: { content: string; image?: string }) => Promise<void>;
   addOptimisticConversation: (tempId: number, title: string) => void;
   resolveOptimisticConversation: (
@@ -72,16 +70,14 @@ export const useChatStore = create<ChatState>((set, get) => ({
   selectedModel: '',
   isInitialized: false,
 
-  initialize: async (userId: string) => {
-    const { isInitialized, currentUserId } = get();
-    if (isInitialized && currentUserId === userId) return;
+  initialize: async () => {
+    if (get().isInitialized) return;
     if (initializePromise) return initializePromise;
 
     initializePromise = (async () => {
       try {
-        const headers = { 'x-user-id': userId };
         const [conversationData, providerData] = await Promise.all([
-          fetchApi<Conversation[]>('/api/conversations', { headers }),
+          fetchApi<Conversation[]>('/api/conversations'),
           fetchApi<Provider[]>('/api/providers').catch(() => []),
         ]);
 
@@ -98,14 +94,14 @@ export const useChatStore = create<ChatState>((set, get) => ({
           conversations,
           providers,
           selectedModel,
-          currentUserId: userId,
+          currentUserId: 'authenticated-user',
           isInitialized: true,
         });
       } catch (error) {
         console.error('Store initialize failed:', error);
         set((state) => ({
           providers: state.providers.length > 0 ? state.providers : LOCAL_PROVIDERS,
-          currentUserId: userId,
+          currentUserId: 'authenticated-user',
           isInitialized: true,
           selectedModel:
             state.selectedModel || LOCAL_PROVIDERS[0]?.models?.[0] || '',
@@ -172,7 +168,6 @@ export const useChatStore = create<ChatState>((set, get) => ({
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'x-user-id': state.currentUserId || TEST_USER_ID,
         },
         body: JSON.stringify({
           conversationId:
@@ -261,7 +256,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       title: title || 'New Chat',
       selectedModel,
       provideId: null,
-      userId: currentUserId || TEST_USER_ID,
+      userId: currentUserId || '',
       createdAt: now,
       updatedAt: now,
     };
@@ -287,7 +282,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   },
 
   switchConversation: async (id) => {
-    const { conversations, currentUserId } = get();
+    const { conversations } = get();
 
     if (id <= 0) {
       set((state) => ({
@@ -312,14 +307,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
       };
     });
 
-    if (!currentUserId) return;
-
     try {
       const history = await fetchApi<Message[]>(
-        `/api/conversations/${id}/messages`,
-        {
-          headers: { 'x-user-id': currentUserId },
-        }
+        `/api/conversations/${id}/messages`
       );
 
       if (requestId !== historyRequestId) return;

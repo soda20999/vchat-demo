@@ -2,6 +2,7 @@
 
 import { Icon } from '@iconify/react';
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import React, { useState } from 'react';
 
 import { ConversationList } from '@/components/Chat/ConversationList';
@@ -15,8 +16,11 @@ const ACTIONS = [
 ];
 
 export function Sidebar() {
+  const pathname = usePathname();
   const [expanded, setExpanded] = useState(false);
   const switchConversation = useChatStore((state) => state.switchConversation);
+
+  if (pathname === '/auth') return null;
 
   const handleNewConversation = async () => {
     await switchConversation(0);
@@ -151,7 +155,7 @@ export function Sidebar() {
               <Icon icon="lucide:square-pen" className="h-4.5 w-4.5" />
             </button>
 
-            <div className="mt-auto mb-3 flex flex-col items-center gap-3">
+            <div className="mb-3 mt-auto flex flex-col items-center gap-3">
               <Link
                 href="/settings"
                 aria-label="设置"
