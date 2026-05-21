@@ -7,6 +7,7 @@ import {
   serial,
   text,
   timestamp,
+  vector,
 } from 'drizzle-orm/pg-core';
 import { InferInsertModel, InferSelectModel } from 'drizzle-orm';
 
@@ -40,6 +41,7 @@ export const users = pgTable(
 export const conversations = pgTable('conversations', {
   id: serial('id').primaryKey(),
   title: text('title').notNull().default('新对话'),
+  summary: text('summary'),
   selectedModel: text('selected_model').notNull(),
   provideId: integer('provide_id').references(() => providers.id),
   userId: text('user_id').references(() => users.id),
@@ -53,7 +55,7 @@ export const messages = pgTable(
     id: serial('id').primaryKey(),
     content: text('content').notNull(),
     status: text('status')
-      .$type<'loading' | 'finished' | 'streaming'>()
+      .$type<'loading' | 'streaming' | 'finished' | 'error'>()
       .default('finished'),
     type: text('type').$type<'question' | 'answer'>().notNull(),
     conversationId: integer('conversation_id')
@@ -64,6 +66,30 @@ export const messages = pgTable(
   },
   (table) => ({
     convIdx: index('conv_idx').on(table.conversationId),
+  })
+);
+
+export const userMemories = pgTable(
+  'user_memories',
+  {
+    id: serial('id').primaryKey(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    content: text('content').notNull(),
+    category: text('category')
+      .$type<'food' | 'schedule' | 'emotion' | 'writing' | 'preference' | 'general'>()
+      .default('general'),
+    keywords: jsonb('keywords').$type<string[]>().notNull().default([]),
+    embedding: vector('embedding', { dimensions: 1024 }).notNull(),
+    weight: integer('weight').notNull().default(1),
+    lastUsedAt: timestamp('last_used_at'),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at').defaultNow().notNull(),
+  },
+  (table) => ({
+    memoryUserIdx: index('memory_user_idx').on(table.userId),
+    memoryCategoryIdx: index('memory_category_idx').on(table.category),
   })
 );
 
@@ -99,6 +125,9 @@ export type NewConversation = InferInsertModel<typeof conversations>;
 
 export type Message = InferSelectModel<typeof messages>;
 export type NewMessage = InferInsertModel<typeof messages>;
+
+export type UserMemory = InferSelectModel<typeof userMemories>;
+export type NewUserMemory = InferInsertModel<typeof userMemories>;
 
 export type RefreshToken = InferSelectModel<typeof refreshTokens>;
 export type NewRefreshToken = InferInsertModel<typeof refreshTokens>;

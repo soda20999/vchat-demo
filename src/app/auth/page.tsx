@@ -1,10 +1,12 @@
 'use client';
 
+// 文件作用：渲染登录/注册页面，提交账号信息并根据结果切换页面状态。
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 
 type Mode = 'login' | 'register';
 
+// 函数名：AuthPage；简单介绍：管理登录和注册表单，成功登录后返回首页。
 export default function AuthPage() {
   const router = useRouter();
   const [mode, setMode] = useState<Mode>('login');
@@ -14,6 +16,7 @@ export default function AuthPage() {
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
 
+  // submit：根据当前 mode 调用登录或注册接口，并处理成功/失败提示。
   const submit = async () => {
     setLoading(true);
     setMessage('');
@@ -34,7 +37,7 @@ export default function AuthPage() {
 
       const text = await response.text();
       const result = text ? JSON.parse(text) : {};
-      if (!response.ok) {
+      if (!response.ok || (result.code !== undefined && result.code !== 200)) {
         throw new Error(result.message || text || 'Request failed');
       }
 

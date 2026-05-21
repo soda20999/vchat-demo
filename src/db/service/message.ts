@@ -30,7 +30,7 @@ export async function createMessage(
   conversationId: number,
   content: string,
   type: 'question' | 'answer',
-  status: 'loading' | 'finished' | 'streaming' = 'finished',
+  status: 'loading' | 'streaming' | 'finished' | 'error' = 'finished',
   image?: string
 ): Promise<Message> {
   const [message] = await db
@@ -56,7 +56,7 @@ export async function updateMessageContent(
 
 export async function updateMessageStatus(
   messageId: number,
-  status: 'loading' | 'finished' | 'streaming'
+  status: 'loading' | 'streaming' | 'finished' | 'error'
 ): Promise<void> {
   await db.update(messages).set({ status }).where(eq(messages.id, messageId));
 }
@@ -65,7 +65,7 @@ export async function updateMessage(
   messageId: number,
   updates: {
     content?: string;
-    status?: 'loading' | 'finished' | 'streaming';
+    status?: 'loading' | 'streaming' | 'finished' | 'error';
   }
 ): Promise<void> {
   if (Object.keys(updates).length === 0) return;

@@ -1,44 +1,38 @@
-/**
- * React Hook: 聊天滚动管理
- * 自动滚动到最新消息（当在底部时）
- */
-
-import { useRef, useEffect } from 'react';
+import { useCallback, useLayoutEffect, useRef } from 'react';
 
 interface UseChatScrollOptions {
-  threshold?: number; // 距离底部多少像素时自动滚动，默认 200px
+  threshold?: number;
 }
 
-export function useChatScroll(dataSource: any[], options?: UseChatScrollOptions) {
+export function useChatScroll(dataSource: unknown[], options?: UseChatScrollOptions) {
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
+  const shouldStickToBottomRef = useRef(true);
   const threshold = options?.threshold ?? 200;
 
-  /**
-   * 滚动到底部
-   */
-  const scrollToBottom = () => {
-    // 使用 setTimeout 确保 DOM 更新完成
-    setTimeout(() => {
-      if (scrollContainerRef.current) {
-        const container = scrollContainerRef.current;
-        const isAtBottom =
-          container.scrollHeight - container.scrollTop - container.clientHeight < threshold;
+  const handleScroll = useCallback(() => {
+    const container = scrollContainerRef.current;
+    if (!container) return;
 
-        if (isAtBottom) {
-          // 平滑滚动到底部
-          container.scrollTo({
-            top: container.scrollHeight,
-            behavior: 'smooth',
-          });
-        }
-      }
-    }, 0);
-  };
+    shouldStickToBottomRef.current =
+      container.scrollHeight - container.scrollTop - container.clientHeight <
+      threshold;
+  }, [threshold]);
 
-  // 监听数据源变化，自动滚动到底部
-  useEffect(() => {
-    scrollToBottom();
-  }, [dataSource]);
+  const scrollToBottom = useCallback((behavior: ScrollBehavior = 'smooth') => {
+    requestAnimationFrame(() => {
+      const container = scrollContainerRef.current;
+      if (!container || !shouldStickToBottomRef.current) return;
 
-  return { scrollContainer: scrollContainerRef, scrollToBottom };
+      container.scrollTo({
+        top: container.scrollHeight,
+        behavior,
+      });
+    });
+  }, []);
+
+  useLayoutEffect(() => {
+    scrollToBottom('auto');
+  }, [dataSource, scrollToBottom]);
+
+  return { scrollContainer: scrollContainerRef, scrollToBottom, handleScroll };
 }

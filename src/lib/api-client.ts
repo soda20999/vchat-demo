@@ -11,6 +11,7 @@ const API_BASE = '/api';
 const DEFAULT_USER_ID = 'test-user-001';
 
 interface ApiEnvelope<T> {
+  code?: number;
   data: T;
   message?: string;
 }
@@ -31,7 +32,7 @@ async function apiRequest<T>(
 
   const data = (await response.json()) as ApiEnvelope<T>;
 
-  if (!response.ok) {
+  if (!response.ok || (data.code !== undefined && data.code !== 200)) {
     throw new Error(data.message || 'Request failed');
   }
 

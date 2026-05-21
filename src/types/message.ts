@@ -1,7 +1,7 @@
 /**
  * 消息状态类型
  */
-export type MessageStatus = 'loading' | 'finished' | 'streaming';
+export type MessageStatus = 'loading' | 'streaming' | 'finished' | 'error';
 
 /**
  * 消息类型定义

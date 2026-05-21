@@ -4,12 +4,12 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { ZodSchema, z } from 'zod';
-import { errorResponse, internalErrorResponse } from './server-response';
+import { ZodSchema } from 'zod';
+import { jsonErrorResponse, jsonExceptionResponse } from './api-error';
 
 export interface ApiHandlerContext {
-  params?: Record<string, any>;
-  searchParams?: Record<string, any>;
+  params?: Record<string, unknown>;
+  searchParams?: Record<string, unknown>;
 }
 
 /**
@@ -23,9 +23,7 @@ export async function handleApiRequest(
   try {
     return await handler(req, context || {});
   } catch (error) {
-    console.error('API Error:', error);
-    const message = error instanceof Error ? error.message : 'Internal Server Error';
-    return NextResponse.json(internalErrorResponse(message), { status: 500 });
+    return jsonExceptionResponse(error, 'API Error');
   }
 }
 
@@ -43,7 +41,7 @@ export async function validateRequestBody<T>(
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Validation Error';
     return {
-      error: NextResponse.json(errorResponse(422, message), { status: 422 }),
+      error: jsonErrorResponse(message, 422),
     };
   }
 }
@@ -65,10 +63,7 @@ export async function requireAuth(req: NextRequest): Promise<{ userId?: string; 
   const userId = await checkAuth(req);
   if (!userId) {
     return {
-      error: NextResponse.json(
-        errorResponse(401, 'Unauthorized - Missing or invalid token'),
-        { status: 401 }
-      ),
+      error: jsonErrorResponse('Unauthorized - Missing or invalid token', 401),
     };
   }
   return { userId };

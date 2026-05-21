@@ -37,12 +37,12 @@ export const createMessageSchema = z.object({
   content: z.string().min(1),
   type: z.enum(['question', 'answer']),
   image: z.string().optional(),
-  status: z.enum(['loading', 'finished', 'streaming']).default('finished'),
+  status: z.enum(['loading', 'streaming', 'finished', 'error']).default('finished'),
 });
 
 export const updateMessageSchema = z.object({
   content: z.string().min(1).optional(),
-  status: z.enum(['loading', 'finished', 'streaming']).optional(),
+  status: z.enum(['loading', 'streaming', 'finished', 'error']).optional(),
 });
 
 export const sendMessageSchema = z

@@ -1,9 +1,9 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 
 import * as userService from '@/db/service/user';
 import { hashPassword } from '@/lib/auth/password';
 import { validateRequestBody } from '@/lib/api-handler';
-import { createdResponse } from '@/lib/server-response';
+import { jsonErrorResponse, jsonSuccessResponse } from '@/lib/api-error';
 import { registerSchema, type RegisterPayload } from '@/lib/validators';
 
 export const runtime = 'nodejs';
@@ -13,17 +13,11 @@ export async function POST(req: NextRequest) {
   if (error) return error;
 
   if (await userService.isEmailExists(data!.email)) {
-    return NextResponse.json(
-      { code: 409, message: 'Email already exists', timestamp: Date.now() },
-      { status: 409 }
-    );
+    return jsonErrorResponse('Email already exists', 409);
   }
 
   if (await userService.isUsernameExists(data!.username)) {
-    return NextResponse.json(
-      { code: 409, message: 'Username already exists', timestamp: Date.now() },
-      { status: 409 }
-    );
+    return jsonErrorResponse('Username already exists', 409);
   }
 
   const user = await userService.createUser({
@@ -32,18 +26,15 @@ export async function POST(req: NextRequest) {
     password: hashPassword(data!.password),
   });
 
-  return NextResponse.json(
-    createdResponse(
-      {
-        user: {
-          id: user.id,
-          username: user.username,
-          email: user.email,
-          signature: user.signature,
-        },
+  return jsonSuccessResponse(
+    {
+      user: {
+        id: user.id,
+        username: user.username,
+        email: user.email,
+        signature: user.signature,
       },
-      'Register successful'
-    ),
-    { status: 201 }
+    },
+    'Register successful'
   );
 }

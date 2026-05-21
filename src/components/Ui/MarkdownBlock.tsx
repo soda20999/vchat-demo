@@ -1,57 +1,51 @@
 'use client';
 
-import React, { useMemo } from 'react';
+// 文件作用：把 AI 回复中的 Markdown 文本渲染成 HTML，并处理流式输出光标和表格样式。
+import React, { useDeferredValue, useMemo } from 'react';
 import MarkdownIt from 'markdown-it';
 import type { Message } from '@/types';
 import { applyMarkdownTableStyles } from './Table';
 
 interface MarkdownBlockProps {
+  // content：需要渲染的 Markdown 原文。
   content: string;
+  // status：消息状态，用于在流式输出时显示光标。
   status?: Message['status'];
 }
 
 const markdownContentClassName =
   'markdown-content prose prose-invert prose-base max-w-none text-[#f2f2f2] prose-p:my-5 prose-p:leading-loose prose-li:my-3 prose-li:leading-loose prose-ul:pl-8 prose-ol:pl-8 prose-headings:my-8 prose-headings:font-bold prose-headings:text-white prose-strong:text-white prose-a:text-[#7ee787] prose-code:rounded prose-code:bg-[#0d0d0d] prose-code:px-1.5 prose-code:py-0.5 prose-pre:rounded-2xl prose-pre:border prose-pre:border-white/10 prose-pre:bg-[#1e1f23] prose-blockquote:border-l-4 prose-blockquote:border-l-[#7ee787] prose-blockquote:pl-4 prose-hr:hidden';
 
-/**
- * React Component: Markdown 渲染块
- * 支持 Markdown 语法和流式输出光标
- */
-export const MarkdownBlock: React.FC<MarkdownBlockProps> = ({
+const markdownParser = new MarkdownIt({
+  html: true,
+  breaks: true,
+  linkify: true,
+});
+
+applyMarkdownTableStyles(markdownParser);
+
+// 函数名：MarkdownBlock；简单介绍：解析 Markdown 内容并输出带样式的富文本；参数变量名：content、status。
+export const MarkdownBlock: React.FC<MarkdownBlockProps> = React.memo(({
   content,
   status,
 }) => {
-  const md = useMemo(
-    () => {
-      const instance = new MarkdownIt({
-        html: true,
-        breaks: true,
-        linkify: true,
-      });
-
-      applyMarkdownTableStyles(instance);
-      return instance;
-    },
-    []
-  );
+  const deferredContent = useDeferredValue(content);
 
   const renderedHtml = useMemo(() => {
-    if (!content) return '';
+    if (!deferredContent) return '';
 
-    let html = md.render(content);
+    let html = markdownParser.render(deferredContent);
 
-    // 流式输出的光标处理
     if (status === 'streaming') {
-      const cursorHtml = `<span class="inline-block w-1.5 h-4 ml-1 bg-green-700 animate-pulse align-middle"></span>`;
-      if (html.endsWith('</p>\n')) {
-        html = html.replace(/<\/p>\n$/, `${cursorHtml}</p>\n`);
-      } else {
-        html += cursorHtml;
-      }
+      const cursorHtml =
+        '<span class="inline-block w-1.5 h-4 ml-1 bg-green-700 animate-pulse align-middle"></span>';
+      html = html.endsWith('</p>\n')
+        ? html.replace(/<\/p>\n$/, `${cursorHtml}</p>\n`)
+        : html + cursorHtml;
     }
 
     return html;
-  }, [content, status, md]);
+  }, [deferredContent, status]);
 
   return (
     <>
@@ -105,4 +99,6 @@ export const MarkdownBlock: React.FC<MarkdownBlockProps> = ({
       `}</style>
     </>
   );
-};
+});
+
+MarkdownBlock.displayName = 'MarkdownBlock';

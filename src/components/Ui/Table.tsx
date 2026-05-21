@@ -1,5 +1,6 @@
 'use client';
 
+// 文件作用：为 markdown-it 的表格渲染规则注入项目统一的 Tailwind 样式。
 import type MarkdownIt from 'markdown-it';
 
 const classes = {
@@ -11,6 +12,7 @@ const classes = {
   cell: 'px-4 py-3 align-top text-[#d6d6d6]',
 };
 
+// 函数名：applyMarkdownTableStyles；简单介绍：覆盖 Markdown 表格相关渲染规则；参数变量名：md。
 export const applyMarkdownTableStyles = (md: MarkdownIt) => {
   md.renderer.rules.table_open = () =>
     `<div class="${classes.wrapper}"><table class="${classes.table}">`;
@@ -20,4 +22,3 @@ export const applyMarkdownTableStyles = (md: MarkdownIt) => {
   md.renderer.rules.th_open = () => `<th class="${classes.head}">`;
   md.renderer.rules.td_open = () => `<td class="${classes.cell}">`;
 };
-

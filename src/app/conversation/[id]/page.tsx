@@ -1,33 +1,15 @@
 'use client';
 
+// 文件作用：渲染指定会话详情页，展示会话标题、更新时间、消息列表和输入框。
 import React, { useEffect, useMemo } from 'react';
 import { useParams } from 'next/navigation';
 
 import { MessageInput } from '@/components/Chat/MessageInput';
 import { MessageList } from '@/components/Chat/MessageList';
+import { formatRelativeTime } from '@/lib/date-time';
 import { useChatStore } from '@/stores/chatStore';
 
-const formatTime = (date: Date | undefined): string => {
-  if (!date) return '';
-
-  const now = new Date();
-  const diff = now.getTime() - new Date(date).getTime();
-  const minutes = Math.floor(diff / 60000);
-  const hours = Math.floor(diff / 3600000);
-  const days = Math.floor(diff / 86400000);
-
-  if (minutes < 1) return '刚刚';
-  if (minutes < 60) return `${minutes} 分钟前`;
-  if (hours < 24) return `${hours} 小时前`;
-  if (days < 7) return `${days} 天前`;
-
-  const d = new Date(date);
-  return `${d.getMonth() + 1}/${d.getDate()} ${d
-    .getHours()
-    .toString()
-    .padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`;
-};
-
+// 函数名：ConversationPage；简单介绍：根据路由中的 id 加载并展示对应会话；参数变量名：params、conversationId。
 export default function ConversationPage() {
   const params = useParams();
   const conversationId = useMemo(
@@ -46,7 +28,11 @@ export default function ConversationPage() {
   );
 
   const formattedUpdateTime = useMemo(
-    () => formatTime(currentConversation?.updatedAt),
+    () =>
+      formatRelativeTime(currentConversation?.updatedAt, {
+        fallback: '',
+        withSpaces: true,
+      }),
     [currentConversation?.updatedAt]
   );
 
@@ -65,11 +51,11 @@ export default function ConversationPage() {
         <span className="text-sm text-gray-500">{formattedUpdateTime}</span>
       </div>
 
-      <div className="flex-1 w-[80%] mx-auto overflow-y-auto pt-2">
+      <div className="min-h-0 flex-1 pt-2">
         <MessageList />
       </div>
 
-      <div className="h-[15%] w-[80%] mx-auto flex items-center flex-shrink-0">
+      <div className="flex flex-shrink-0 items-center py-4">
         <MessageInput
           selectedModel={selectedModel}
           conversationId={conversationId}

@@ -1,10 +1,14 @@
 'use client';
 
+// 文件作用：封装项目通用按钮样式，支持图标、尾部内容和激活状态。
 import React from 'react';
 
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
+  // active：按钮是否处于激活状态。
   active?: boolean;
+  // icon：按钮左侧图标节点。
   icon?: React.ReactNode;
+  // suffix：按钮右侧附加节点。
   suffix?: React.ReactNode;
 }
 
@@ -12,6 +16,7 @@ interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
  * React Component: 通用按钮
  * 支持活跃状态显示
  */
+// 函数名：Button；简单介绍：渲染统一样式的按钮，并透传原生 button 属性；参数变量名：active、icon、suffix、children、className。
 export const Button: React.FC<ButtonProps> = ({
   active = false,
   icon,

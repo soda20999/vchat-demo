@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 
 import * as refreshTokenService from '@/db/service/refresh-token';
 import {
@@ -7,7 +7,7 @@ import {
   getRefreshTokenExpiresAt,
   hashRefreshToken,
 } from '@/lib/auth/generate-token';
-import { successResponse } from '@/lib/server-response';
+import { jsonErrorResponse, jsonSuccessResponse } from '@/lib/api-error';
 
 export const runtime = 'nodejs';
 
@@ -21,10 +21,7 @@ function isSecureCookie() {
 export async function POST(req: NextRequest) {
   const refreshToken = req.cookies.get(REFRESH_TOKEN_COOKIE)?.value;
   if (!refreshToken) {
-    return NextResponse.json(
-      { code: 401, message: 'Refresh token is missing', timestamp: Date.now() },
-      { status: 401 }
-    );
+    return jsonErrorResponse('Refresh token is missing', 401);
   }
 
   const refreshTokenHash = await hashRefreshToken(refreshToken);
@@ -33,10 +30,7 @@ export async function POST(req: NextRequest) {
   );
 
   if (!tokenRecord || tokenRecord.expiresAt <= new Date()) {
-    return NextResponse.json(
-      { code: 401, message: 'Refresh token is invalid or expired', timestamp: Date.now() },
-      { status: 401 }
-    );
+    return jsonErrorResponse('Refresh token is invalid or expired', 401);
   }
 
   // Rotation: 旧 RT 作废，换发新的 AT/RT。
@@ -56,10 +50,7 @@ export async function POST(req: NextRequest) {
     nextRefreshTokenExpiresAt
   );
 
-  const response = NextResponse.json(
-    successResponse({ ok: true }, 'Token refreshed'),
-    { status: 200 }
-  );
+  const response = jsonSuccessResponse({ ok: true }, 'Token refreshed');
 
   response.cookies.set(ACCESS_TOKEN_COOKIE, accessToken, {
     httpOnly: true,
