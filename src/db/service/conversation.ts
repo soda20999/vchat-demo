@@ -41,6 +41,13 @@ export async function updateConversationTitle(id: number, title: string) {
     .where(eq(conversations.id, id));
 }
 
+export async function updateConversationSummary(id: number, summary: string) {
+  await db
+    .update(conversations)
+    .set({ summary, updatedAt: new Date() })
+    .where(eq(conversations.id, id));
+}
+
 export async function touchConversation(id: number) {
   await db
     .update(conversations)

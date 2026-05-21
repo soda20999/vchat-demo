@@ -1,11 +1,29 @@
-import { getAIProvider } from '@/ai/provider-factory';
+import {
+  buildChatContext,
+  shouldSummarizeContext,
+} from '@/ai/context/context-builder';
+import { summarizeMessages } from '@/ai/context/summarizer';
+import { getPromptTemplate } from '@/ai/prompt/prompt-templates';
+import { getAIProvider, getAvailableProviders } from '@/ai/provider-factory';
 import * as conversationService from '@/db/service/conversation';
+import * as memoryService from '@/db/service/memory';
 import * as messageService from '@/db/service/message';
 import * as providerService from '@/db/service/provide';
+import {
+  encodeStreamEvent,
+  getErrorMessage,
+  streamErrorResponse,
+  streamResponse,
+  writeStreamError,
+} from '@/lib/api-error';
 
 export const runtime = 'nodejs';
 
 const providerIdCache = new Map<string, number | null>();
+const providerModelMap: Record<string, string[]> = {
+  deepseek: ['deepseek-v4-pro'],
+  qwen: ['qwen-plus', 'qwen-turbo'],
+};
 
 interface ChatRequestBody {
   conversationId?: number | null;
@@ -13,12 +31,41 @@ interface ChatRequestBody {
   image?: string;
   model?: string;
   providerName?: string;
+  contextOptions?: {
+    memoryEnabled?: boolean;
+    summaryEnabled?: boolean;
+    relevantHistoryEnabled?: boolean;
+    recentTurns?: number;
+  };
+  promptSettings?: {
+    templateId?: string;
+    systemPrompt?: string;
+    temperature?: number;
+    topP?: number;
+    maxTokens?: number;
+  };
 }
+
+type ChatStreamEvent =
+  | { type: 'delta'; content: string }
+  | { type: 'done'; content: string }
+  | { type: 'error'; message: string };
 
 function inferProviderName(model: string) {
   if (model.startsWith('deepseek')) return 'deepseek';
-  if (model.startsWith('gemini')) return 'gemini';
+  if (model.startsWith('qwen')) return 'qwen';
   return '';
+}
+
+function getFallbackModel() {
+  const availableProvider = getAvailableProviders()[0];
+  return availableProvider
+    ? providerModelMap[availableProvider]?.[0] || ''
+    : '';
+}
+
+function normalizeModel(model: string) {
+  return inferProviderName(model) ? model : getFallbackModel();
 }
 
 function getRequestUserId(request: Request) {
@@ -47,7 +94,8 @@ export async function POST(request: Request) {
     const body = (await request.json()) as ChatRequestBody;
     const content = body.content?.trim() || '';
     const image = body.image;
-    const model = body.model?.trim() || '';
+    const requestedModel = body.model?.trim() || '';
+    const model = normalizeModel(requestedModel);
     const providerName = (body.providerName || inferProviderName(model)).trim();
     const userId = getRequestUserId(request);
     const requestedConversationId =
@@ -55,24 +103,13 @@ export async function POST(request: Request) {
         ? body.conversationId
         : null;
 
-    if (!userId) {
-      return Response.json({ message: 'Unauthorized' }, { status: 401 });
-    }
-
-    if (!model) {
-      return Response.json({ message: 'Model is required' }, { status: 400 });
-    }
-
+    if (!userId) return streamErrorResponse('Unauthorized');
+    if (!requestedModel) return streamErrorResponse('Model is required');
+    if (!model) return streamErrorResponse('No available model is configured');
     if (!content && !image) {
-      return Response.json(
-        { message: 'Message content is required' },
-        { status: 400 }
-      );
+      return streamErrorResponse('Message content is required');
     }
-
-    if (!providerName) {
-      return Response.json({ message: 'Provider is required' }, { status: 400 });
-    }
+    if (!providerName) return streamErrorResponse('Provider is required');
 
     const provider = getAIProvider(providerName);
     const cachedProviderId = requestedConversationId
@@ -95,6 +132,39 @@ export async function POST(request: Request) {
       );
     }
 
+    const historyMessages = await messageService.getConversationMessages(
+      conversation.id
+    );
+    const memories =
+      body.contextOptions?.memoryEnabled === false || !content
+        ? []
+        : await memoryService.getRelevantMemories(userId, content).catch(
+            (memoryError) => {
+              console.error('Load relevant memories failed:', memoryError);
+              return [];
+            }
+          );
+    const template = body.promptSettings?.templateId
+      ? getPromptTemplate(body.promptSettings.templateId)
+      : undefined;
+    const systemPrompt =
+      body.promptSettings?.systemPrompt || template?.systemPrompt;
+
+    const chatContext = buildChatContext({
+      modelName: model,
+      currentContent: content,
+      currentImage: image,
+      summary: conversation.summary,
+      systemPrompt,
+      memories,
+      historyMessages: historyMessages.map((message) => ({
+        type: message.type,
+        content: message.content,
+        image: message.image,
+      })),
+      options: body.contextOptions,
+    });
+
     const [userMessage, aiMessage] = await Promise.all([
       messageService.createMessage(
         conversation.id,
@@ -108,21 +178,23 @@ export async function POST(request: Request) {
 
     await conversationService.touchConversation(conversation.id);
 
-    const encoder = new TextEncoder();
     let aiContent = '';
+    const encodeEvent = (event: ChatStreamEvent) =>
+      encodeStreamEvent(event);
 
     const stream = new ReadableStream<Uint8Array>({
       async start(controller) {
         try {
           await provider.streamChat(
-            content,
+            chatContext,
             model,
             null,
             (chunk) => {
               aiContent += chunk;
-              controller.enqueue(encoder.encode(chunk));
+              controller.enqueue(encodeEvent({ type: 'delta', content: chunk }));
             },
-            image
+            image,
+            body.promptSettings
           );
 
           await Promise.all([
@@ -132,34 +204,69 @@ export async function POST(request: Request) {
             }),
             conversationService.touchConversation(conversation.id),
           ]);
+          controller.enqueue(encodeEvent({ type: 'done', content: aiContent }));
           controller.close();
+
+          void memoryService.saveUserMemory(userId, content).catch((memoryError) => {
+            console.error('Save user memory failed:', memoryError);
+          });
+
+          if (shouldSummarizeContext(model, historyMessages.length + 2)) {
+            const messagesForSummary = [
+              ...historyMessages,
+              { type: 'question' as const, content, image },
+              { type: 'answer' as const, content: aiContent },
+            ];
+
+            void summarizeMessages({
+              provider,
+              modelName: model,
+              previousSummary: conversation.summary,
+              messages: messagesForSummary,
+            })
+              .then((summary) =>
+                conversationService.updateConversationSummary(
+                  conversation.id,
+                  summary
+                )
+              )
+              .catch((summaryError) => {
+                console.error('Summarize conversation failed:', summaryError);
+              });
+          }
         } catch (error) {
-          await Promise.all([
-            messageService.updateMessage(aiMessage.id, {
-              content: aiContent,
-              status: 'finished',
-            }),
-            conversationService.touchConversation(conversation.id),
-          ]);
-          controller.error(error);
+          await writeStreamError(
+            controller,
+            error,
+            'AI response failed',
+            () =>
+              markAiMessageError(aiMessage.id, aiContent, conversation.id)
+          );
         }
       },
     });
 
-    return new Response(stream, {
-      headers: {
-        'Content-Type': 'text/plain; charset=utf-8',
-        'Cache-Control': 'no-cache, no-transform',
-        Connection: 'keep-alive',
-        'x-conversation-id': String(conversation.id),
-        'x-conversation-title': encodeURIComponent(conversation.title),
-        'x-user-message-id': String(userMessage.id),
-        'x-ai-message-id': String(aiMessage.id),
-      },
+    return streamResponse(stream, {
+      'x-conversation-id': String(conversation.id),
+      'x-conversation-title': encodeURIComponent(conversation.title),
+      'x-user-message-id': String(userMessage.id),
+      'x-ai-message-id': String(aiMessage.id),
     });
   } catch (error) {
-    const message =
-      error instanceof Error ? error.message : 'Internal Server Error';
-    return Response.json({ message }, { status: 500 });
+    return streamErrorResponse(getErrorMessage(error));
   }
+}
+
+async function markAiMessageError(
+  aiMessageId: number,
+  content: string,
+  conversationId: number
+) {
+  await Promise.all([
+    messageService.updateMessage(aiMessageId, {
+      content,
+      status: 'error',
+    }),
+    conversationService.touchConversation(conversationId),
+  ]);
 }

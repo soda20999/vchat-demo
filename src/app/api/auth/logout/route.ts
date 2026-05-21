@@ -1,8 +1,8 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 
 import * as refreshTokenService from '@/db/service/refresh-token';
 import { hashRefreshToken } from '@/lib/auth/generate-token';
-import { successResponse } from '@/lib/server-response';
+import { jsonSuccessResponse } from '@/lib/api-error';
 
 export const runtime = 'nodejs';
 
@@ -17,10 +17,7 @@ export async function POST(req: NextRequest) {
     await refreshTokenService.revokeRefreshTokenByHash(refreshTokenHash);
   }
 
-  const response = NextResponse.json(
-    successResponse({ ok: true }, 'Logout successful'),
-    { status: 200 }
-  );
+  const response = jsonSuccessResponse({ ok: true }, 'Logout successful');
 
   response.cookies.set(ACCESS_TOKEN_COOKIE, '', {
     httpOnly: true,

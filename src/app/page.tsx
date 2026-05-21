@@ -1,10 +1,12 @@
 'use client';
 
+// 文件作用：渲染首页聊天界面，负责模型选择、快捷开始、消息列表和输入框。
 import React, { useEffect } from 'react';
 
 import { MessageInput } from '@/components/Chat/MessageInput';
 import { MessageList } from '@/components/Chat/MessageList';
-import { ProviderSelect } from '@/components/Provider/provider-select';
+import { LifeQuickStart } from '@/components/Prompt/LifeQuickStart';
+import { ProviderSelect } from '@/components/Provider/ProviderSelecter';
 import { useChatStore } from '@/stores/chatStore';
 
 /**
@@ -18,6 +20,7 @@ export default function HomePage() {
   const sendMessage = useChatStore((state) => state.sendMessage);
   const switchConversation = useChatStore((state) => state.switchConversation);
 
+  // handleSendMessage：接收输入框提交的消息内容并转交给聊天状态。
   const handleSendMessage = async (payload: {
     content: string;
     image?: string;
@@ -30,7 +33,7 @@ export default function HomePage() {
   }, [switchConversation]);
 
   return (
-    <div className="w-[80%] mx-auto h-full flex flex-col">
+    <div className="mx-auto flex h-full w-full flex-col">
       {(messages?.length || 0) > 0 ? (
         <div className="flex-1 min-h-0 flex flex-col">
           <MessageList />
@@ -43,11 +46,12 @@ export default function HomePage() {
               value={selectedModel}
               onChange={updateSelectedModel}
             />
+            <LifeQuickStart />
           </div>
         </div>
       )}
 
-      <div className="flex items-center flex-none py-4">
+      <div className="flex flex-none items-center py-4">
         <MessageInput
           selectedModel={selectedModel}
           conversationId={0}

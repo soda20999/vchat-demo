@@ -1,20 +1,29 @@
-import { GeminiProvider } from './providers/gemini';
 import { DeepSeekProvider } from './providers/deepseek';
+import { QwenProvider } from './providers/qwen';
 import { AIProvider } from './interface';
 
 const providerEnvMap: Record<string, string> = {
-  gemini: 'GEMINI_API_KEY',
   deepseek: 'DEEPSEEK_API_KEY',
+  qwen: 'QWEN_API_KEY',
 };
+
+export function getSupportedProviderNames(): string[] {
+  return Object.keys(providerEnvMap);
+}
+
+function hasConfiguredApiKey(envKey: string): boolean {
+  const value = process.env[envKey]?.trim();
+  return Boolean(value && !value.startsWith('replace-with-'));
+}
 
 export function getAIProvider(providerType: string): AIProvider {
   const normalizedProvider = providerType.toLowerCase();
 
   switch (normalizedProvider) {
-    case 'gemini':
-      return new GeminiProvider(process.env.GEMINI_API_KEY || '');
     case 'deepseek':
       return new DeepSeekProvider(process.env.DEEPSEEK_API_KEY || '');
+    case 'qwen':
+      return new QwenProvider(process.env.QWEN_API_KEY || '');
     default:
       throw new Error(`Unsupported AI provider: ${providerType}`);
   }
@@ -22,6 +31,6 @@ export function getAIProvider(providerType: string): AIProvider {
 
 export function getAvailableProviders(): string[] {
   return Object.entries(providerEnvMap)
-    .filter(([, envKey]) => Boolean(process.env[envKey]))
+    .filter(([, envKey]) => hasConfiguredApiKey(envKey))
     .map(([providerName]) => providerName);
 }

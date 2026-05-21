@@ -1,25 +1,38 @@
-/**
- * GET /api/providers - 获取所有AI模型提供商
- */
+import { getSupportedProviderNames } from '@/ai/provider-factory';
+import { LOCAL_PROVIDERS } from '@/config/providers';
+import * as providerService from '@/db/service/provide';
+import {
+  jsonExceptionResponse,
+  jsonSuccessResponse,
+} from '@/lib/api-error';
 
-import { NextRequest, NextResponse } from 'next/server';
-import * as providerService from '../../../db/service/provide';
-import { successResponse, internalErrorResponse } from '../../../lib/server-response';
-
-/**
- * GET - 获取所有提供商
- */
-export async function GET(req: NextRequest) {
+export async function GET() {
   try {
-    const providers = await providerService.getAllProviders();
-
-    return NextResponse.json(
-      successResponse(providers, '获取提供商列表成功'),
-      { status: 200 }
+    const supportedProviders = new Set(getSupportedProviderNames());
+    const dbProviderMap = new Map(
+      (await providerService.getAllProviders()).map((provider) => [
+        provider.name,
+        provider,
+      ])
     );
+    const localProviderMap = new Map(
+      LOCAL_PROVIDERS.map((provider) => [provider.name, provider])
+    );
+    const providers = LOCAL_PROVIDERS
+      .filter((provider) => supportedProviders.has(provider.name))
+      .map((provider) => {
+        const dbProvider = dbProviderMap.get(provider.name);
+        return {
+          ...provider,
+          id: dbProvider?.id ?? provider.id,
+          createdAt: dbProvider?.createdAt ?? provider.createdAt,
+          updatedAt: dbProvider?.updatedAt ?? provider.updatedAt,
+          models: localProviderMap.get(provider.name)?.models || provider.models,
+        };
+      });
+
+    return jsonSuccessResponse(providers, 'Providers fetched');
   } catch (error) {
-    console.error('GET /api/providers error:', error);
-    const msg = error instanceof Error ? error.message : 'Internal Server Error';
-    return NextResponse.json(internalErrorResponse(msg), { status: 500 });
+    return jsonExceptionResponse(error, 'GET /api/providers error');
   }
 }

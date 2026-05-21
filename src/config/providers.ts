@@ -5,10 +5,10 @@ const now = new Date();
 export const LOCAL_PROVIDERS: Provider[] = [
   {
     id: 1,
-    name: 'gemini',
-    title: 'Google Gemini',
-    desc: 'Default Gemini models',
-    models: ['gemini-3-flash-preview', 'gemini-2.0-pro'],
+    name: 'qwen',
+    title: 'Qwen',
+    desc: 'Default Qwen models',
+    models: ['qwen-plus', 'qwen-turbo'],
     createdAt: now,
     updatedAt: now,
   },
@@ -17,7 +17,7 @@ export const LOCAL_PROVIDERS: Provider[] = [
     name: 'deepseek',
     title: 'DeepSeek',
     desc: 'Default DeepSeek models',
-    models: ['deepseek-chat'],
+    models: ['deepseek-v4-pro'],
     createdAt: now,
     updatedAt: now,
   },

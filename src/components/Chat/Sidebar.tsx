@@ -1,5 +1,6 @@
 'use client';
 
+// 文件作用：渲染应用左侧导航栏，包含折叠菜单、新建会话、会话列表和设置入口。
 import { Icon } from '@iconify/react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -15,6 +16,7 @@ const ACTIONS = [
   { icon: 'lucide:badge-star', label: '我的内容' },
 ];
 
+// 函数名：Sidebar；简单介绍：根据当前路由和展开状态渲染侧边栏，并提供新建会话入口。
 export function Sidebar() {
   const pathname = usePathname();
   const [expanded, setExpanded] = useState(false);
@@ -22,6 +24,7 @@ export function Sidebar() {
 
   if (pathname === '/auth') return null;
 
+  // handleNewConversation：切换到临时新会话，用于开始一段新的聊天。
   const handleNewConversation = async () => {
     await switchConversation(0);
   };

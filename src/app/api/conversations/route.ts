@@ -1,12 +1,8 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 
 import * as conversationService from '@/db/service/conversation';
-import {
-  createdResponse,
-  internalErrorResponse,
-  successResponse,
-} from '@/lib/server-response';
 import { requireAuth, validateRequestBody } from '@/lib/api-handler';
+import { jsonExceptionResponse, jsonSuccessResponse } from '@/lib/api-error';
 import {
   createConversationSchema,
   type CreateConversationPayload,
@@ -19,14 +15,9 @@ export async function GET(req: NextRequest) {
 
     const conversations = await conversationService.getUserConversations(userId!);
 
-    return NextResponse.json(successResponse(conversations, 'Conversations fetched'), {
-      status: 200,
-    });
+    return jsonSuccessResponse(conversations, 'Conversations fetched');
   } catch (error) {
-    console.error('GET /api/conversations error:', error);
-    const message =
-      error instanceof Error ? error.message : 'Internal Server Error';
-    return NextResponse.json(internalErrorResponse(message), { status: 500 });
+    return jsonExceptionResponse(error, 'GET /api/conversations error');
   }
 }
 
@@ -49,13 +40,8 @@ export async function POST(req: NextRequest) {
       userId!
     );
 
-    return NextResponse.json(createdResponse(conversation, 'Conversation created'), {
-      status: 201,
-    });
+    return jsonSuccessResponse(conversation, 'Conversation created');
   } catch (error) {
-    console.error('POST /api/conversations error:', error);
-    const message =
-      error instanceof Error ? error.message : 'Internal Server Error';
-    return NextResponse.json(internalErrorResponse(message), { status: 500 });
+    return jsonExceptionResponse(error, 'POST /api/conversations error');
   }
 }

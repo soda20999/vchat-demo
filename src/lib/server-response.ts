@@ -2,7 +2,7 @@
  * API 响应标准化工具
  */
 
-export interface ApiResponse<T = any> {
+export interface ApiResponse<T = unknown> {
   code: number;
   message: string;
   data?: T;

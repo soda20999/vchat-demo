@@ -4,6 +4,7 @@
 export interface Conversation {
   id: number;
   title: string;
+  summary?: string | null;
   selectedModel: string;
   provideId: number | null;
   userId: string;

@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 
 import * as refreshTokenService from '@/db/service/refresh-token';
 import * as userService from '@/db/service/user';
@@ -10,7 +10,11 @@ import {
 } from '@/lib/auth/generate-token';
 import { verifyPassword } from '@/lib/auth/password';
 import { validateRequestBody } from '@/lib/api-handler';
-import { successResponse } from '@/lib/server-response';
+import {
+  jsonErrorResponse,
+  jsonExceptionResponse,
+  jsonSuccessResponse,
+} from '@/lib/api-error';
 import { loginSchema, type LoginPayload } from '@/lib/validators';
 
 export const runtime = 'nodejs';
@@ -29,10 +33,7 @@ export async function POST(req: NextRequest) {
 
     const user = await userService.getUserByEmail(data!.email);
     if (!user || !verifyPassword(data!.password, user.password)) {
-      return NextResponse.json(
-        { code: 401, message: 'Invalid email or password', timestamp: Date.now() },
-        { status: 401 }
-      );
+      return jsonErrorResponse('Invalid email or password', 401);
     }
 
     const accessToken = await generateAccessToken({
@@ -49,19 +50,16 @@ export async function POST(req: NextRequest) {
       refreshTokenExpiresAt
     );
 
-    const response = NextResponse.json(
-      successResponse(
-        {
-          user: {
-            id: user.id,
-            username: user.username,
-            email: user.email,
-            signature: user.signature,
-          },
+    const response = jsonSuccessResponse(
+      {
+        user: {
+          id: user.id,
+          username: user.username,
+          email: user.email,
+          signature: user.signature,
         },
-        'Login successful'
-      ),
-      { status: 200 }
+      },
+      'Login successful'
     );
 
     response.cookies.set(ACCESS_TOKEN_COOKIE, accessToken, {
@@ -82,10 +80,6 @@ export async function POST(req: NextRequest) {
 
     return response;
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Login failed';
-    return NextResponse.json(
-      { code: 500, message, timestamp: Date.now() },
-      { status: 500 }
-    );
+    return jsonExceptionResponse(error, 'Login failed');
   }
 }

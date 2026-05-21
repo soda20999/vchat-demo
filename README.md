@@ -1,189 +1,220 @@
-# VChat - 下一代多模态 AI 聊天应用
+# VChat - AI 多模型聊天系统
 
-VChat 是一款基于 Next.js 16、React 19 与 AI SDK 构建的多模态聊天应用，聚焦于流式对话、图片输入、会话持久化与多模型切换体验。它既可以作为 AI Chat 产品原型，也适合作为多供应商接入、对话状态管理与数据库建模的实践项目。
-
-## 核心亮点
-
-- **多模型自由切换**: 内置 Gemini、DeepSeek 两类 Provider，可按模型维度灵活选择。
-- **多模态输入体验**: 支持文字与图片联合提问，适合视觉理解、截图分析等场景。
-- **流式响应反馈**: 聊天响应采用流式输出，消息生成过程可实时感知。
-- **会话历史持久化**: 基于 Drizzle ORM + PostgreSQL 存储会话、消息与 Provider 数据。
-- **现代前端架构**: 使用 Next.js App Router、React 19、Zustand、Tailwind CSS 4 构建。
-- **Markdown 渲染优化**: 支持 AI 回复 Markdown 展示，并针对流式状态做了光标反馈处理。
-- **可扩展 Provider 设计**: 通过统一接口和工厂模式封装不同 AI 服务商，便于后续扩容。
+VChat 是一个基于 Next.js 16 + React 19 的 AI 多模型聊天系统，支持 DeepSeek / Qwen 模型切换、Token 级流式响应、场景化 Prompt、长对话上下文管理、会话持久化和基于 pgvector 的轻量级长期记忆。
 
 ## 技术栈
 
-- **应用框架**: Next.js 16 + React 19
-- **样式系统**: Tailwind CSS 4
-- **状态管理**: Zustand
-- **数据库**: PostgreSQL
-- **ORM**: Drizzle ORM + Drizzle Kit
-- **AI 能力**:
-  - Google Generative AI（Gemini）
-  - OpenAI Compatible API（DeepSeek）
-  - Vercel AI SDK
-- **内容渲染**: MarkdownIt
-- **组件能力**: Radix UI Select + Iconify
-- **数据校验**: Zod
+- Next.js 16 / React 19 / TypeScript
+- Tailwind CSS / Zustand / use-immer
+- Drizzle ORM / PostgreSQL / pgvector
+- OpenAI SDK 兼容接口
+- DashScope Embedding API
+- MarkdownIt / react-virtuoso
+- Docker
+
+## 功能亮点
+
+- **Token 级流式对话体验**：基于 `fetch`、`ReadableStream`、`TextDecoder` 和 NDJSON 事件实现流式输出，支持 Stop、Retry、异常兜底和消息状态更新。
+- **多模型统一接入**：通过 OpenAI SDK 兼容封装统一 DeepSeek 与 Qwen 调用逻辑，当前支持 `deepseek-v4-pro`、`qwen-plus`、`qwen-turbo`。
+- **场景化 Prompt 配置**：内置生活规划、饮食建议、写作润色、情绪支持等 Prompt 模板，并支持温度、Top-P、最大 Token 等参数配置。
+- **长对话上下文管理**：结合会话摘要、相关历史召回、最近轮次保留和 Token 预算估算，降低长对话上下文膨胀带来的成本。
+- **轻量级长期记忆能力**：基于 DashScope Embedding API + PostgreSQL pgvector 构建 Lightweight Vector Store，使用余弦相似度实现用户信息 Top-K 语义召回，并动态注入 Prompt。
+- **会话与消息持久化**：使用 Drizzle ORM 管理用户、会话、消息、Provider、长期记忆等数据表。
 
 ## 项目结构
 
 ```text
-vchat/
-├── src/
-│   ├── ai/                         # AI Provider 抽象与实现
-│   │   ├── interface.ts
-│   │   ├── provider-factory.ts
-│   │   └── providers/
-│   │       ├── deepseek.ts
-│   │       └── gemini.ts
-│   ├── app/                        # Next.js App Router
-│   │   ├── api/                    # 聊天、会话、Provider 接口
-│   │   │   ├── chat/route.ts
-│   │   │   ├── conversations/
-│   │   │   └── providers/route.ts
-│   │   ├── conversation/[id]/      # 对话详情页
-│   │   ├── settings/               # 设置页
-│   │   ├── globals.css
-│   │   ├── layout.tsx
-│   │   └── page.tsx                # 首页
-│   ├── components/
-│   │   ├── Attachment/             # 图片上传与预览
-│   │   ├── Chat/                   # 聊天 UI 组件
-│   │   ├── Provider/               # 模型选择器
-│   │   └── Ui/                     # 通用组件
-│   ├── config/                     # 本地默认 Provider 配置
-│   ├── db/                         # 数据库连接、Schema、Service
-│   ├── hooks/                      # 自定义 Hooks
-│   ├── lib/                        # API 与响应辅助函数
-│   ├── stores/                     # Zustand 状态仓库
-│   └── types/                      # TypeScript 类型定义
-├── package.json
-├── MIGRATION_GUIDE.md
-├── CLAUDE.md
-└── AGENTS.md
+src
+├─ ai
+│  ├─ context          # 上下文组装、摘要、相关历史、Token 估算
+│  ├─ memory           # 长期记忆分析与 Embedding
+│  ├─ prompt           # 场景化 Prompt 模板
+│  ├─ providers        # DeepSeek / Qwen Provider
+│  ├─ interface.ts
+│  └─ provider-factory.ts
+├─ app
+│  ├─ api              # Auth / Chat / Conversations / Providers API
+│  ├─ auth             # 登录注册页面
+│  ├─ conversation     # 会话页面
+│  └─ settings
+├─ components
+│  ├─ Chat             # 聊天窗口、消息列表、输入框、上下文开关
+│  ├─ Prompt           # Prompt 模板与快捷入口
+│  ├─ Provider         # 模型选择
+│  └─ Ui               # 通用 UI 组件
+├─ db
+│  ├─ schema.ts        # Drizzle 数据表定义
+│  └─ service          # 数据库读写逻辑
+├─ stores              # Zustand 状态管理
+├─ lib                 # API 响应、错误处理、工具函数
+└─ types               # TypeScript 类型
 ```
 
-## 快速开始
+## 核心流程
 
-### 1. 安装依赖
-
-```bash
-npm install
+```text
+用户输入
+  ↓
+Zustand 乐观插入用户消息和 AI loading 消息
+  ↓
+POST /api/chat
+  ↓
+读取会话历史、摘要、长期记忆
+  ↓
+buildChatContext 组装 Prompt
+  ↓
+OpenAI SDK 兼容层调用 DeepSeek / Qwen
+  ↓
+ReadableStream 流式返回 delta
+  ↓
+前端实时追加 AI 消息内容
+  ↓
+回复完成后持久化消息、保存长期记忆、按需生成摘要
 ```
 
-### 2. 配置环境变量
+## 环境变量
 
-在根目录创建 `.env.local`：
+在项目根目录创建 `.env.local`：
 
 ```env
-# PostgreSQL
-DATABASE_URL=postgres://username:password@localhost:5432/vchat
+DATABASE_URL=postgres://username:password@localhost:5432/vchat_db
 
-# Google Gemini
-GEMINI_API_KEY=your_gemini_api_key
-
-# DeepSeek
 DEEPSEEK_API_KEY=your_deepseek_api_key
+QWEN_API_KEY=your_qwen_api_key
+DASHSCOPE_API_KEY=your_dashscope_api_key
+
+JWT_ACCESS_SECRET=your_access_secret
+JWT_REFRESH_SECRET=your_refresh_secret
 ```
 
-### 3. 初始化数据库
+说明：
+
+- `DATABASE_URL` 用于 Drizzle 连接 PostgreSQL。
+- `DASHSCOPE_API_KEY` 用于 `text-embedding-v4` 生成长期记忆向量。
+- 至少配置 `DEEPSEEK_API_KEY` 或 `QWEN_API_KEY` 中的一个。
+- 数据库需要启用 `pgvector` 扩展。
+
+## 数据库准备
+
+如果使用 Docker 部署 PostgreSQL，推荐使用 pgvector 镜像：
+
+```bash
+docker run -d \
+  --name vchat-postgres \
+  -e POSTGRES_USER=mumu \
+  -e POSTGRES_PASSWORD=your_password \
+  -e POSTGRES_DB=vchat_db \
+  -p 5432:5432 \
+  --restart unless-stopped \
+  pgvector/pgvector:pg16
+```
+
+进入数据库启用扩展：
+
+```bash
+docker exec -it vchat-postgres psql -U mumu -d vchat_db -c "CREATE EXTENSION IF NOT EXISTS vector;"
+```
+
+同步表结构：
 
 ```bash
 npm run db:push
 ```
 
-### 4. 启动开发环境
+检查长期记忆表：
+
+```bash
+docker exec -it vchat-postgres psql -U mumu -d vchat_db -c "\d user_memories"
+```
+
+需要看到：
+
+```text
+embedding | vector(1024)
+```
+
+## 本地启动
+
+安装依赖：
+
+```bash
+npm install
+```
+
+启动开发环境：
 
 ```bash
 npm run dev
 ```
 
-默认访问地址：
+访问：
 
 ```text
 http://localhost:3000
 ```
 
-### 5. 构建生产版本
+构建生产版本：
 
 ```bash
 npm run build
 npm run start
 ```
 
-## 使用指南
-
-### 开始对话
-
-1. 进入首页后选择可用模型。
-2. 输入文本内容，或附带图片一起提问。
-3. 提交后页面会立即插入本地消息与 AI 占位消息。
-4. AI 回复通过流式返回逐段渲染到消息列表中。
-
-### 会话管理
-
-- 新消息会自动创建会话，并生成会话标题。
-- 历史会话可从侧边栏切换查看。
-- 切换旧会话时，会自动加载对应消息历史与所选模型。
-
-### Provider 管理
-
-- 当前项目已接入 `gemini` 与 `deepseek`。
-- 当数据库中尚未配置 Provider 时，前端会回退到本地默认 Provider 列表。
-- 后续扩展新模型时，只需补充 Provider 实现、注册工厂并配置模型列表。
-
-## 数据设计
-
-当前数据库围绕以下核心实体展开：
-
-- **users**: 用户基础信息
-- **providers**: AI 供应商与模型配置
-- **conversations**: 会话标题、选中模型、所属用户
-- **messages**: 问答消息内容、状态、图片字段
-
-这套结构已经覆盖了聊天应用最核心的数据链路，便于继续往认证、设置、Prompt 模板、文件管理等方向扩展。
-
-## 开发说明
-
-### 常用命令
+## 常用命令
 
 ```bash
-npm run dev
-npm run build
-npm run lint
-npm run db:push
-npm run db:studio
+npm run dev        # 启动开发环境
+npm run build      # 构建生产版本
+npm run start      # 启动生产服务
+npm run lint       # 代码检查
+npm run db:push    # 同步 Drizzle schema
+npm run db:studio  # 打开 Drizzle Studio
 ```
 
-### 当前特性状态
+## 长期记忆测试
 
-- 已完成基础聊天 UI 与消息流式渲染
-- 已完成 Gemini / DeepSeek Provider 接入
-- 已完成会话与消息持久化
-- 已支持图片字段上传与消息展示链路
-- 已具备按用户维度读取会话的接口基础
+发送一条能触发记忆的消息：
 
-## 安全与注意事项
+```text
+我喜欢晚上学习，而且希望你以后回答简短一点
+```
 
-- API Key 通过环境变量管理，不应提交到仓库。
-- 项目当前依赖 `DATABASE_URL` 连接 PostgreSQL，启动前需要确保数据库可用。
-- 聊天接口默认会基于请求头 `x-user-id` 识别用户；本地开发场景下存在默认测试用户兜底逻辑。
-- 如果只配置了部分 Provider，对应未配置 API Key 的模型将不可用。
+等待 AI 回复完成后查询数据库：
 
-## 后续可拓展方向
+```bash
+docker exec -it vchat-postgres psql -U mumu -d vchat_db -c "SELECT id, content, category, keywords FROM user_memories ORDER BY id DESC LIMIT 5;"
+```
 
-- 完善用户认证与注册登录流程
-- 增加更多模型供应商与模型参数控制
-- 支持多轮上下文裁剪与系统提示词配置
-- 增加消息重试、会话重命名、消息删除等交互
-- 补充单元测试、接口测试与部署方案
+再发送：
 
-## 开源协议
+```text
+你觉得我什么时候复习比较合适？
+```
 
-MIT License
+如果回答参考了“晚上学习”等信息，说明 Embedding + pgvector 召回和 Prompt 注入已生效。
 
-## 参与贡献
+## 数据表
 
-欢迎提交 Issue 与 Pull Request，一起把 VChat 打磨成更完整的多模态 AI 聊天应用。
+- `users`：用户信息
+- `refresh_tokens`：刷新令牌
+- `providers`：模型供应商配置
+- `conversations`：会话、标题、摘要、选中模型
+- `messages`：用户消息和 AI 回复
+- `user_memories`：长期记忆文本、分类、关键词、Embedding 向量
+
+## Docker 部署
+
+项目提供 `docker-compose.yml` 用于启动应用容器：
+
+```bash
+docker compose up -d --build
+```
+
+注意：当前 compose 文件只包含应用服务，PostgreSQL 需要单独部署或补充到 compose 中，并确保 `.env.local` 中的 `DATABASE_URL` 指向可访问的数据库。
+
+## 注意事项
+
+- 不要提交 `.env`、`.env.local`、`.env.production` 中的真实 API Key。
+- 修改数据库 schema 后需要执行 `npm run db:push`。
+- 服务端环境变量变更后建议重启 `npm run dev`。
+- 如果删除了 App Router 路由但 build 仍引用旧路由，可清理 `.next` 后重新构建。
