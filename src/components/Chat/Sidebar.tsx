@@ -7,6 +7,7 @@ import { usePathname } from 'next/navigation';
 import React, { useState } from 'react';
 
 import { ConversationList } from '@/components/Chat/ConversationList';
+import { SidebarButton } from '@/components/Ui/SidebarButton';
 import { useChatStore } from '@/stores/chatStore';
 
 const NOTEBOOK_ITEMS = ['Linux Command Reference: Clear', '新建笔记本'];
@@ -75,68 +76,53 @@ export function Sidebar() {
           <>
             <div className="mt-5 space-y-1">
               {ACTIONS.map((item) => {
-                const content = (
-                  <>
-                    <Icon icon={item.icon} className="h-4.5 w-4.5 shrink-0 text-[#d4d4d4]" />
-                    <span className="text-[14px] font-semibold tracking-[-0.01em]">
-                      {item.label}
-                    </span>
-                  </>
-                );
-
                 if (item.action === 'new-chat') {
                   return (
-                    <button
+                    <SidebarButton
                       key={item.label}
-                      type="button"
+                      icon={<Icon icon={item.icon} className="h-4.5 w-4.5 text-[#d4d4d4]" />}
                       onClick={() => void handleNewConversation()}
-                      className="flex w-full items-center gap-3 rounded-xl px-2 py-2 text-left transition-colors hover:bg-[#262626]"
+                      textClassName="font-semibold tracking-[-0.01em] text-[#d6d6d6]"
                     >
-                      {content}
-                    </button>
+                      {item.label}
+                    </SidebarButton>
                   );
                 }
 
                 return (
-                  <button
+                  <SidebarButton
                     key={item.label}
-                    type="button"
-                    className="flex w-full items-center gap-3 rounded-xl px-2 py-2 text-left transition-colors hover:bg-[#262626]"
+                    icon={<Icon icon={item.icon} className="h-4.5 w-4.5 text-[#d4d4d4]" />}
+                    textClassName="font-semibold tracking-[-0.01em] text-[#d6d6d6]"
                   >
-                    {content}
-                  </button>
+                    {item.label}
+                  </SidebarButton>
                 );
               })}
             </div>
 
             <div className="mt-5">
-              <button
-                type="button"
-                className="flex w-full items-center justify-between rounded-xl px-2 py-1.5 text-left transition-colors hover:bg-[#262626]"
+              <SidebarButton
+                suffix={<Icon icon="lucide:chevron-right" className="h-3.5 w-3.5 text-[#acacac]" />}
+                className="py-1.5"
+                textClassName="font-semibold text-[#ececec]"
               >
-                <span className="text-[14px] font-semibold text-[#ececec]">笔记本</span>
-                <Icon icon="lucide:chevron-right" className="h-3.5 w-3.5 text-[#acacac]" />
-              </button>
+                笔记本
+              </SidebarButton>
 
               <div className="mt-2 space-y-0.5">
-                <button
-                  type="button"
-                  className="flex w-full items-center gap-3 rounded-xl px-2 py-2 text-left transition-colors hover:bg-[#262626]"
+                <SidebarButton
+                  icon={<Icon icon="lucide:notebook-text" className="h-4.5 w-4.5 text-[#d4d4d4]" />}
+                  textClassName="font-medium"
                 >
-                  <Icon icon="lucide:notebook-text" className="h-4.5 w-4.5 shrink-0 text-[#d4d4d4]" />
-                  <span className="truncate text-[14px] font-medium text-[#d2d2d2]">
-                    {NOTEBOOK_ITEMS[0]}
-                  </span>
-                </button>
-                <button
-                  type="button"
-                  className="flex w-full items-center gap-3 rounded-xl px-2 py-2 text-left transition-colors hover:bg-[#262626]"
+                  {NOTEBOOK_ITEMS[0]}
+                </SidebarButton>
+                <SidebarButton
+                  icon={<Icon icon="lucide:plus" className="h-4.5 w-4.5 text-[#d4d4d4]" />}
+                  textClassName="font-medium"
                 >
-                  <Icon icon="lucide:plus" className="h-4.5 w-4.5 shrink-0 text-[#d4d4d4]" />
-                  <span className="text-[14px] font-medium text-[#d2d2d2]">
-                    {NOTEBOOK_ITEMS[1]}
-                  </span>
-                </button>
+                  {NOTEBOOK_ITEMS[1]}
+                </SidebarButton>
               </div>
             </div>
 

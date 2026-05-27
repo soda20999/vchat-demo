@@ -4,6 +4,7 @@
 import { Icon } from '@iconify/react';
 import React from 'react';
 
+import { SidebarButton } from '@/components/Ui/SidebarButton';
 import { useChatStore } from '@/stores/chatStore';
 
 type ConversationItemProps = {
@@ -21,19 +22,15 @@ type ConversationItemProps = {
  */
 const ConversationItem = React.memo(
   ({ active, title, onClick }: ConversationItemProps) => (
-    <button
+    <SidebarButton
       onClick={onClick}
-      className={`flex w-full items-center justify-between gap-3 rounded-xl px-2.5 py-2 text-left transition-colors ${
-        active
-          ? 'bg-[#2a2a2a] shadow-[inset_0_0_0_1px_rgba(255,255,255,0.03)]'
-          : 'hover:bg-[#262626]'
-      }`}
+      active={active}
+      suffix={<Icon icon="lucide:pin" className="h-3.5 w-3.5 text-[#bdbdbd]" />}
+      className="px-2.5"
+      textClassName="font-medium"
     >
-      <h2 className="flex-1 truncate text-[14px] font-medium leading-[1.35] text-[#d2d2d2]">
-        {title}
-      </h2>
-      <Icon icon="lucide:pin" className="h-3.5 w-3.5 shrink-0 text-[#bdbdbd]" />
-    </button>
+      {title}
+    </SidebarButton>
   )
 );
 
