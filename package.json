@@ -7,6 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "check:markdown-sanitize": "tsx scripts/check-markdown-sanitize.ts",
     "db:push": "drizzle-kit push",
     "db:seed": "node scripts/db-seed.mjs",
     "db:studio": "drizzle-kit studio"
@@ -16,6 +17,7 @@
     "@neondatabase/serverless": "^1.1.0",
     "@radix-ui/react-select": "^2.2.6",
     "ai": "^6.0.168",
+    "dompurify": "^3.4.7",
     "drizzle-orm": "^0.45.2",
     "jose": "^6.2.2",
     "markdown-it": "^14.1.1",
@@ -35,6 +37,7 @@
   "devDependencies": {
     "@iconify/react": "^6.0.2",
     "@tailwindcss/postcss": "^4",
+    "@types/jsdom": "^28.0.3",
     "@types/markdown-it": "^14.1.2",
     "@types/node": "^20",
     "@types/react": "^19",
@@ -43,7 +46,9 @@
     "drizzle-kit": "^0.31.10",
     "eslint": "^9",
     "eslint-config-next": "16.2.4",
+    "jsdom": "^29.1.1",
     "tailwindcss": "^4",
+    "tsx": "^4.22.3",
     "typescript": "^5"
   }
 }

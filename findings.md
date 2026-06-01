@@ -71,3 +71,43 @@
 - `src/app/auth/page.tsx` is currently syntactically broken around the username placeholder and contains mojibake UI copy.
 - PowerShell note: paths containing `[id]` must be read with `-LiteralPath`, e.g. `src\app\conversation\[id]\page.tsx`.
 - Project preference added to `AGENTS.md`: do not proactively fix existing Chinese mojibake/comments/encoding issues unless they block compile/runtime behavior; new user-facing copy should still be normal Chinese.
+
+---
+
+# Findings: Secure Markdown HTML Rendering
+
+## Project Facts
+
+- Project uses `next@16.2.4`, React `19.2.4`, App Router under `src/app`, Tailwind CSS v4, and `markdown-it`.
+- Local Next.js 16 docs read before planning:
+  - `node_modules/next/dist/docs/01-app/01-getting-started/05-server-and-client-components.md`
+  - `node_modules/next/dist/docs/01-app/02-guides/third-party-libraries.md`
+- Relevant doc conclusions:
+  - Components that use browser-only APIs or client-side third-party libraries should be Client Components.
+  - A file marked `'use client'` defines a client boundary; imports used by that component are part of the client bundle.
+- `src/components/Ui/MarkdownBlock.tsx` is already a Client Component.
+
+## Markdown Rendering Path
+
+- `src/components/Chat/MessageBubble.tsx` dynamically imports `MarkdownBlock`.
+- `src/components/Ui/MarkdownBlock.tsx`:
+  - creates a shared `MarkdownIt` parser
+  - enables `html: true`, `breaks: true`, and `linkify: true`
+  - applies table styles through `applyMarkdownTableStyles`
+  - renders Markdown to HTML with `markdownParser.render(deferredContent)`
+  - appends a streaming cursor HTML span when status is `streaming`
+  - sends the final string directly to `dangerouslySetInnerHTML`
+- `src/components/Ui/Table.tsx` injects table wrapper and cell classes by overriding markdown-it renderer rules.
+
+## Dependency State
+
+- `markdown-it` and `@types/markdown-it` are installed.
+- `dompurify` is not currently installed.
+- No existing sanitizer was found via `rg` for `DOMPurify`, `sanitize`, or related terms.
+
+## Security Requirement
+
+- Markdown must be parsed first, then sanitized before HTML insertion.
+- Sanitization must use a whitelist approach.
+- Scripts, event attributes, and dangerous protocols must be blocked.
+- Only safe tags and attributes should remain.

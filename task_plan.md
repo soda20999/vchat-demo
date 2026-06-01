@@ -134,3 +134,106 @@ Wait for explicit user approval before editing application files. After approval
   - `src/components/Attachment/ImagePreview.tsx`: existing `<img>` warning.
   - `src/components/Chat/MessageBubble.tsx`: existing `<img>` warning.
 - `npm.cmd run build` completed successfully with Next.js 16.2.4.
+
+---
+
+# Task Plan: Secure Markdown HTML Rendering
+
+## Goal
+
+Ensure AI Markdown content is parsed first and then sanitized before any HTML is rendered, so scripts, event attributes, dangerous protocols, and unsafe tags/attributes are blocked while safe Markdown formatting continues to work.
+
+## Current Status
+
+- [x] Inspect current project structure, key files, existing components, styles, APIs, and config.
+- [x] Read relevant local Next.js 16 docs before planning.
+- [x] Locate current Markdown rendering path.
+- [x] Record findings and implementation plan.
+- [ ] Get approval for the implementation design.
+- [ ] Add sanitizer dependency if needed.
+- [ ] Add focused safety checks for Markdown sanitization behavior.
+- [ ] Implement sanitized Markdown rendering.
+- [ ] Run lint/build and available tests.
+
+## Current Understanding
+
+- The project is a Next.js 16.2.4 App Router app with React 19.
+- Markdown rendering is isolated in `src/components/Ui/MarkdownBlock.tsx`.
+- The component currently uses `markdown-it` with `html: true`, `breaks: true`, and `linkify: true`.
+- After `markdownParser.render(...)`, the HTML is passed directly to `dangerouslySetInnerHTML`.
+- Table styling is injected through `src/components/Ui/Table.tsx` by adding classes to markdown-it renderer rules.
+- The rendered Markdown is used by `src/components/Chat/MessageBubble.tsx` for assistant responses.
+- `dompurify` is not currently installed.
+
+## Proposed Scope For Approval
+
+Keep the existing user-visible Markdown behavior, but insert a strict sanitize step between Markdown parsing and `dangerouslySetInnerHTML`.
+
+The preferred approach is:
+
+- Add `dompurify` as a dependency.
+- Keep `MarkdownBlock` as a Client Component, matching Next.js local docs for browser/third-party-library usage.
+- Configure DOMPurify with explicit allowed tags and attributes.
+- Forbid script-capable and form/embed tags.
+- Forbid all event attributes.
+- Restrict URL attributes to safe protocols such as `http`, `https`, `mailto`, and `tel`.
+- Preserve project table wrapper/classes and the streaming cursor by sanitizing after the cursor is appended, with only safe `span`/`class` output allowed.
+
+## Files To Modify After Approval
+
+- `package.json`
+  - Add sanitizer dependency.
+- `package-lock.json`
+  - Update lockfile through npm.
+- `src/components/Ui/MarkdownBlock.tsx`
+  - Import sanitizer.
+  - Add allowlist configuration.
+  - Sanitize the rendered HTML before returning it.
+  - Keep existing Markdown parser and table styling unless verification reveals a conflict.
+- Optional focused test/check file
+  - Add a small script or test if the current project setup supports it without broad tooling churn.
+
+## Implementation Plan
+
+### Phase 1: Dependency And Test Harness
+
+- Install `dompurify`.
+- Prefer a small focused automated check for sanitizer behavior.
+- If no suitable test runner exists, use a lightweight verification command or document the limitation.
+
+### Phase 2: Sanitizer Configuration
+
+- Define a local allowlist for Markdown output:
+  - text structure: `p`, headings, lists, `blockquote`, `hr`, `br`
+  - emphasis/code: `strong`, `em`, `s`, `code`, `pre`
+  - links: `a` with safe `href`, `title`, `target`, `rel`
+  - tables: `div`, `table`, `thead`, `tbody`, `tr`, `th`, `td`
+  - streaming cursor: `span`
+- Allow `class` only because existing Tailwind/prose/table/cursor styling depends on it.
+- Block dangerous tags including `script`, `style`, `iframe`, `object`, `embed`, `form`, `input`, `button`, `textarea`, `select`, `svg`, `math`, and media tags unless explicitly needed later.
+- Block event attributes such as `onclick`.
+- Block dangerous protocols such as `javascript:`, `data:`, and `vbscript:`.
+
+### Phase 3: MarkdownBlock Integration
+
+- Render Markdown with `markdown-it`.
+- Append streaming cursor HTML when needed.
+- Sanitize the final HTML.
+- Pass only sanitized output to `dangerouslySetInnerHTML`.
+
+### Phase 4: Verification
+
+- Run focused sanitizer checks if added.
+- Run `npm.cmd run lint`.
+- Run `npm.cmd run build`.
+
+## Risks
+
+- Sanitizing after render may strip a tag or attribute currently relied on by Markdown/table styling; allowlist should include current table wrapper and class usage.
+- Allowing `class` is necessary for styling but broad; risk is acceptable only because scripts/events/protocols are still blocked and this app does not use untrusted class names for behavior.
+- Installing `dompurify` may require network access; if npm install is blocked, retry with escalation.
+- There is no existing `npm test` script, so verification may rely on focused commands plus lint/build unless a minimal test script is introduced.
+
+## Approval Gate
+
+Wait for explicit user approval before editing application code or package dependencies.

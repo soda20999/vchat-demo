@@ -1,9 +1,11 @@
 'use client';
 
 // 文件作用：把 AI 回复中的 Markdown 文本渲染成 HTML，并处理流式输出光标和表格样式。
-import React, { useDeferredValue, useMemo } from 'react';
+import React, { useMemo } from 'react';
 import MarkdownIt from 'markdown-it';
+import DOMPurify from 'dompurify';
 import type { Message } from '@/types';
+import { sanitizeMarkdownHtml } from '@/lib/markdown-sanitize';
 import { applyMarkdownTableStyles } from './Table';
 
 interface MarkdownBlockProps {
@@ -23,18 +25,17 @@ const markdownParser = new MarkdownIt({
 });
 
 applyMarkdownTableStyles(markdownParser);
+markdownParser.renderer.rules.hr = () => '';
 
 // 函数名：MarkdownBlock；简单介绍：解析 Markdown 内容并输出带样式的富文本；参数变量名：content、status。
 export const MarkdownBlock: React.FC<MarkdownBlockProps> = React.memo(({
   content,
   status,
 }) => {
-  const deferredContent = useDeferredValue(content);
-
   const renderedHtml = useMemo(() => {
-    if (!deferredContent) return '';
+    if (!content) return '';
 
-    let html = markdownParser.render(deferredContent);
+    let html = markdownParser.render(content);
 
     if (status === 'streaming') {
       const cursorHtml =
@@ -44,8 +45,8 @@ export const MarkdownBlock: React.FC<MarkdownBlockProps> = React.memo(({
         : html + cursorHtml;
     }
 
-    return html;
-  }, [deferredContent, status]);
+    return sanitizeMarkdownHtml(DOMPurify, html);
+  }, [content, status]);
 
   return (
     <>
