@@ -73,7 +73,12 @@ export function buildChatContext(input: BuildContextInput) {
   }
 
   parts.push(
-    'Answer the current user question based on the context below. Use the context as reference, but do not repeat it mechanically.'
+    [
+      'Answer the current user question directly.',
+      'Use any provided memories, summaries, or history only as optional reference.',
+      'If no relevant context is available, rely on the current question and general knowledge.',
+      'Do not ask the user for context unless the current question itself is ambiguous.',
+    ].join(' ')
   );
 
   if (options.memoryEnabled !== false && input.memories?.length) {

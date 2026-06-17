@@ -1,3 +1,52 @@
+# Findings: Backend Cancellation And Chat Stream Protocol Layer
+
+## Project Context
+
+- Project is a Next.js 16.2.4 App Router app.
+- Per `AGENTS.md`, local Next docs were re-read before planning:
+  - `node_modules/next/dist/docs/01-app/01-getting-started/15-route-handlers.md`
+  - `node_modules/next/dist/docs/01-app/02-guides/streaming.md`
+- Relevant doc conclusions:
+  - Route Handlers use standard Web `Request` and `Response`.
+  - Route Handlers can stream raw `ReadableStream` responses.
+  - SSE is an appropriate Route Handler streaming use case.
+  - Once streaming starts, HTTP status/headers cannot be changed.
+  - Proxies/compression may buffer streams; existing `X-Accel-Buffering: no` remains appropriate.
+
+## Current Stream Implementation
+
+- `src/lib/sse-stream.ts` now owns generic SSE encode/parse and shared `ChatStreamEvent` types:
+  - `metadata`
+  - `delta`
+  - `done`
+  - `error`
+- `src/app/api/chat/route.ts` emits `metadata` first, then `delta`, then `done` or `error`.
+- `src/lib/api-error.ts` returns `Content-Type: text/event-stream; charset=utf-8`.
+- `src/stores/chatStore.ts` consumes SSE directly with reader/decoder/parser/guard/flush logic.
+- `src/lib/api-client.ts` has a second similar SSE reader loop.
+- `scripts/check-sse-stream.ts` covers low-level SSE parser behavior, but not a higher-level chat stream consumer yet.
+
+## Stop Generation Gap
+
+- `stopGeneration` currently aborts the frontend `fetch` through `AbortController`.
+- The frontend catch block treats `AbortError` as a user stop and marks the active answer `finished`.
+- Backend provider calls do not receive `request.signal`.
+- `src/ai/interface.ts` defines `streamChat(...)` without any abort/options parameter.
+- `src/ai/providers/openai-compatible.ts` calls `this.client.chat.completions.create(...)` without request options.
+- DeepSeek and Qwen both inherit `OpenAICompatibleProvider`, so a single provider implementation change covers both.
+- The installed `openai` SDK type definitions show `chat.completions.create(body, options?: RequestOptions)` and `RequestOptions.signal?: AbortSignal`, so provider-level cancellation can be wired directly.
+
+## Integration Notes
+
+- `src/ai/context/summarizer.ts` calls `provider.streamChat(prompt, input.modelName)`; provider options must remain optional to preserve this call.
+- Abort handling should avoid sending an `error` event for user stop, because current UI treats stop as a successful partial finish.
+- Backend should persist partial generated content on stop as `finished`, matching current UX and avoiding a stuck `loading` DB message.
+- The stream controller needs a closed/aborted guard because enqueueing after the client disconnects can throw.
+- `chatStore.ts` contains old NDJSON wording in a comment block; this is directly related and should be removed or rewritten during extraction.
+- Existing Chinese mojibake/comments are otherwise out of scope per project preference.
+
+---
+
 # Findings: Login Page Plan
 
 ## Project Facts
@@ -111,3 +160,93 @@
 - Sanitization must use a whitelist approach.
 - Scripts, event attributes, and dangerous protocols must be blocked.
 - Only safe tags and attributes should remain.
+
+---
+
+# Findings: Convert Chat Stream From NDJSON To SSE
+
+## Project Facts
+
+- Project uses `next@16.2.4`, React `19.2.4`, App Router under `src/app`.
+- Current worktree status from `git status --short` only shows untracked `tmp_pdf_text.txt`; no tracked app file modifications were present before this planning update.
+- Local Next.js 16 docs read for this task:
+  - `node_modules/next/dist/docs/01-app/01-getting-started/15-route-handlers.md`
+  - `node_modules/next/dist/docs/01-app/02-guides/streaming.md`
+  - `node_modules/next/dist/docs/01-app/01-getting-started/06-fetching-data.md`
+- Relevant local doc conclusions:
+  - App Router Route Handlers use standard Web `Request` and `Response` APIs.
+  - Route Handlers can stream raw responses with `ReadableStream`.
+  - Server-Sent Events are explicitly called out as a valid Route Handler streaming use case.
+  - Once streaming starts, status code and headers cannot be changed.
+  - Streaming can be affected by proxies/CDNs/compression; `X-Accel-Buffering: no` is useful for Nginx-style buffering.
+
+## Current Chat Stream Path
+
+- Backend route: `src/app/api/chat/route.ts`
+  - Exports `runtime = 'nodejs'`.
+  - Parses POST JSON body.
+  - Validates user/model/content/provider before creating the stream.
+  - Creates conversation and placeholder AI message before streaming.
+  - Streams provider chunks through `ReadableStream<Uint8Array>`.
+  - Emits three event types: `delta`, `done`, `error`.
+  - Sends conversation/message ids through response headers.
+- Shared response utilities: `src/lib/api-error.ts`
+  - `encodeStreamEvent(event)` currently writes `${JSON.stringify(event)}\n`.
+  - `streamResponse(...)` currently sets `Content-Type: application/x-ndjson; charset=utf-8`.
+  - `streamErrorResponse(...)` and `writeStreamError(...)` also use NDJSON encoding.
+- Frontend main store: `src/stores/chatStore.ts`
+  - `sendMessage` uses `fetch('/api/chat', { method: 'POST' })`.
+  - Keeps `AbortController` for Stop generation.
+  - Reads `response.body.getReader()`.
+  - Uses `TextDecoder` plus a string buffer.
+  - Current parsing splits by `\n` and `JSON.parse`s each complete line.
+  - UI updates are already protocol-agnostic after parsing: `delta` appends content, `done` finishes, `error` marks error.
+- Secondary client: `src/lib/api-client.ts`
+  - Exports `sendMessageStream`.
+  - Search did not find imports of `sendMessageStream` in current `src` or `scripts`.
+  - It currently treats response chunks as raw text and should be updated or left clearly obsolete to avoid future protocol drift.
+
+## SSE Design Decision
+
+- Use `fetch + ReadableStream` to consume `text/event-stream`, not native `EventSource`.
+- Reason: current chat request needs POST JSON body and request abort semantics; native `EventSource` only supports GET and would require a larger two-step job/subscription design.
+- Keep event payload shape unchanged so the rest of Zustand/UI logic stays stable:
+  - `{ type: 'delta', content: string }`
+  - `{ type: 'done', content: string }`
+  - `{ type: 'error', message: string }`
+- Encode each event as an SSE frame with optional `event:` and JSON `data:`.
+
+## Potential Verification
+
+- Existing project scripts include:
+  - `npm.cmd run lint`
+  - `npm.cmd run build`
+- No new dependency is needed for SSE.
+- A focused parser check can be added or run through `tsx` if implementation extracts parser logic enough to test without rendering React.
+
+## 2026-06-17 Extended SSE Protocol Findings
+
+- The previous implementation changed the wire format to SSE, but protocol ownership is still split:
+  - `ChatStreamEvent` is separately defined in `src/app/api/chat/route.ts`, `src/stores/chatStore.ts`, `src/lib/api-client.ts`, and `scripts/check-sse-stream.ts`.
+  - Conversation and message IDs are still delivered through response headers: `x-conversation-id`, `x-conversation-title`, `x-user-message-id`, `x-ai-message-id`.
+  - The frontend still reads those headers before consuming the stream.
+- The user now wants a more standard SSE protocol with explicit event types including `metadata`.
+- Current best fit remains `fetch + ReadableStream` over `text/event-stream`, not native `EventSource`, because the app needs POST JSON body, image payloads, auth/proxy behavior, and AbortController stop support.
+- A better protocol shape is:
+  - `metadata`: sent first after conversation/user/AI placeholder messages are persisted; includes `conversationId`, `conversationTitle`, `userMessageId`, and `aiMessageId`.
+  - `delta`: streamed model text chunk.
+  - `done`: generation completion; includes final content and optionally persisted status/message IDs for confirmation.
+  - `error`: stream-level error after the stream has started; includes message and optional partial content.
+- Route Handler facts from local Next 16 docs still apply:
+  - Route Handlers can stream raw responses via Web Streams API.
+  - SSE is an appropriate Route Handler streaming use case.
+  - Once streaming starts, headers/status cannot be changed, so metadata needed by the UI should be inside the stream if it is part of the runtime protocol.
+- Frontend behavior to preserve:
+  - optimistic local conversation for new chats
+  - local placeholder answer message
+  - AbortController stop behavior
+  - append chunks to the current placeholder
+  - mark answer `finished` on `done`
+  - mark answer `error` while preserving partial text on `error`
+- Current cleanup opportunity:
+  - `src/stores/chatStore.ts` has a leftover comment block mentioning NDJSON even though the parser function was removed. This should be removed or rewritten during protocol cleanup.

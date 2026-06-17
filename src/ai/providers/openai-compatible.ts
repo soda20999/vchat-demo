@@ -1,6 +1,6 @@
 import OpenAI from 'openai';
 import { z } from 'zod';
-import { AIModelParams, AIProvider } from '../interface';
+import { AIModelParams, AIProvider, AIStreamOptions } from '../interface';
 
 interface OpenAICompatibleProviderOptions {
   apiKey: string;
@@ -37,24 +37,37 @@ export class OpenAICompatibleProvider implements AIProvider {
     _schema?: z.ZodType | null,
     onChunk?: (text: string) => void,
     imageUrl?: string,
-    params?: AIModelParams
+    params?: AIModelParams,
+    options?: AIStreamOptions
   ): Promise<{ answer: string }> {
     const finalPrompt = imageUrl
       ? `${userPrompt}\n${this.imageFallbackNote}`
       : userPrompt;
+    const signal = options?.signal;
 
-    const stream = await this.client.chat.completions.create({
-      model: modelName,
-      messages: [{ role: 'user', content: finalPrompt }],
-      temperature: params?.temperature,
-      top_p: params?.topP,
-      max_tokens: params?.maxTokens,
-      stream: true,
-    });
+    if (signal?.aborted) {
+      throw new DOMException('The operation was aborted.', 'AbortError');
+    }
+
+    const stream = await this.client.chat.completions.create(
+      {
+        model: modelName,
+        messages: [{ role: 'user', content: finalPrompt }],
+        temperature: params?.temperature,
+        top_p: params?.topP,
+        max_tokens: params?.maxTokens,
+        stream: true,
+      },
+      { signal }
+    );
 
     let fullResponse = '';
 
     for await (const chunk of stream) {
+      if (signal?.aborted) {
+        throw new DOMException('The operation was aborted.', 'AbortError');
+      }
+
       const chunkText = chunk.choices[0]?.delta?.content || '';
       if (!chunkText) continue;
 

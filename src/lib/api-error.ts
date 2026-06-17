@@ -1,8 +1,7 @@
 import { NextResponse } from 'next/server';
+import { encodeSseEvent, type ChatStreamErrorEvent } from '@/lib/sse-stream';
 
-type StreamErrorEvent = { type: 'error'; message: string };
-
-const encoder = new TextEncoder();
+type StreamErrorEvent = ChatStreamErrorEvent;
 
 export function getErrorMessage(
   error: unknown,
@@ -11,8 +10,8 @@ export function getErrorMessage(
   return error instanceof Error ? error.message : fallback;
 }
 
-export function encodeStreamEvent<T>(event: T) {
-  return encoder.encode(`${JSON.stringify(event)}\n`);
+export function encodeStreamEvent<T extends { type?: string }>(event: T) {
+  return encodeSseEvent(event);
 }
 
 export function jsonSuccessResponse<T>(
@@ -52,9 +51,10 @@ export function streamResponse(
   return new Response(stream, {
     status: 200,
     headers: {
-      'Content-Type': 'application/x-ndjson; charset=utf-8',
+      'Content-Type': 'text/event-stream; charset=utf-8',
       'Cache-Control': 'no-cache, no-transform',
       Connection: 'keep-alive',
+      'X-Accel-Buffering': 'no',
       ...headers,
     },
   });

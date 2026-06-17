@@ -8,6 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "check:markdown-sanitize": "tsx scripts/check-markdown-sanitize.ts",
+    "check:chat-context": "tsx scripts/check-chat-context.ts",
+    "check:sse-stream": "tsx scripts/check-sse-stream.ts",
     "db:push": "drizzle-kit push",
     "db:seed": "node scripts/db-seed.mjs",
     "db:studio": "drizzle-kit studio"

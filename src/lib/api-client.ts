@@ -6,6 +6,7 @@ import type {
   UpdateConversationPayload,
   CreateMessagePayload,
 } from '../types';
+import { consumeChatStream } from './chat-stream-client';
 
 const API_BASE = '/api';
 const DEFAULT_USER_ID = 'test-user-001';
@@ -150,28 +151,17 @@ export async function sendMessageStream(
     throw new Error('Response body is empty');
   }
 
-  const reader = response.body.getReader();
-  const decoder = new TextDecoder();
   let fullText = '';
 
-  try {
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-
-      const chunk = decoder.decode(value, { stream: true });
-      fullText += chunk;
-      onChunk?.(chunk);
-    }
-
-    const tail = decoder.decode();
-    if (tail) {
-      fullText += tail;
-      onChunk?.(tail);
-    }
-  } finally {
-    reader.releaseLock();
-  }
+  await consumeChatStream(response.body, {
+    onDelta: (event) => {
+      fullText += event.content;
+      onChunk?.(event.content);
+    },
+    onError: (event) => {
+      throw new Error(event.message);
+    },
+  });
 
   return fullText;
 }

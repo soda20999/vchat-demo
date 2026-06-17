@@ -1,3 +1,44 @@
+# Progress: Backend Cancellation And Chat Stream Protocol Layer
+
+## 2026-06-17 17:18 +08:00
+
+- User requested a new plan for two follow-up stream improvements:
+  - propagate stop generation to the backend/provider
+  - extract SSE consumption from Zustand into an independent protocol layer
+- Loaded and read `using-superpowers`, `planning-with-files`, and `brainstorming`.
+- Confirmed no installed `context-engineering` skill is available; used explicit project-context inspection instead.
+- Re-read existing `task_plan.md`, `findings.md`, and `progress.md`.
+- Re-read local Next.js 16 Route Handler and Streaming docs.
+- Inspected current stream/provider files:
+  - `src/lib/sse-stream.ts`
+  - `src/app/api/chat/route.ts`
+  - `src/stores/chatStore.ts`
+  - `src/lib/api-client.ts`
+  - `src/lib/api-error.ts`
+  - `src/ai/interface.ts`
+  - `src/ai/providers/openai-compatible.ts`
+  - `src/ai/providers/deepseek.ts`
+  - `src/ai/providers/qwen.ts`
+  - `src/ai/context/summarizer.ts`
+- Confirmed current stop behavior only aborts frontend fetch; provider does not receive an abort signal.
+- Confirmed installed OpenAI SDK supports `RequestOptions.signal`.
+- Confirmed store and secondary API client currently duplicate SSE reader/parser loops.
+- Added the new task plan and findings.
+- Next step: wait for user approval, then implement checks first, provider cancellation, protocol-layer extraction, and verification.
+- User approved the plan.
+- Extended `scripts/check-sse-stream.ts` first; initial run failed as expected because `src/lib/chat-stream-client.ts` did not exist. A first attempt also exposed top-level await incompatibility with the current CJS tsx output, so the script was wrapped in a promise chain.
+- Added `src/lib/chat-stream-client.ts` as the shared SSE/chat stream consumer layer.
+- Updated `src/stores/chatStore.ts` to use `consumeChatStream` and removed the direct reader/parser/flush loop.
+- Updated `src/lib/api-client.ts` to use `consumeChatStream`.
+- Replaced `src/ai/interface.ts` with a clean interface definition and added optional `AIStreamOptions`.
+- Updated `src/ai/providers/openai-compatible.ts` to pass `AbortSignal` into OpenAI SDK request options and check abort during streaming.
+- Updated `src/app/api/chat/route.ts` to pass `request.signal` to provider, guard stream enqueue/close, persist partial content as `finished` on abort, and send guarded SSE error events for real errors.
+- `npm.cmd run check:sse-stream` passed.
+- `npm.cmd run lint` passed with 0 errors and the same 2 existing `<img>` warnings.
+- `npm.cmd run build` passed successfully with Next.js 16.2.4.
+
+---
+
 # Progress: Login Page Plan
 
 ## 2026-05-24
@@ -55,3 +96,47 @@ Implement the plan when requested, starting with route-group layout separation a
 - Confirmed `src/components/Ui/Table.tsx` injects table classes that must be preserved by the sanitizer allowlist.
 - Confirmed `dompurify` is not currently installed.
 - Updated `task_plan.md` and `findings.md` with the Markdown sanitization plan and project facts.
+
+## 2026-06-17
+
+- Started new task: convert the chat stream protocol from NDJSON to SSE.
+- User requested `context-engineering`, `planning-with-files`, and `using-superpowers`.
+- Loaded and read `using-superpowers` and `planning-with-files`.
+- Confirmed no installed skill named `context-engineering` is available in this session; proceeded with explicit project-context inspection.
+- Loaded `brainstorming` because the task changes stream protocol behavior; per that skill, implementation waits for design approval.
+- Re-read existing root planning files and preserved prior task history.
+- Inspected project root, `package.json`, active `MessageList.tsx`, current git status, and key stream-related files.
+- Read local Next.js 16 docs for Route Handlers, Streaming, and Fetching Data.
+- Located the current NDJSON stream implementation:
+  - backend: `src/app/api/chat/route.ts`
+  - response helpers: `src/lib/api-error.ts`
+  - frontend parser and reader loop: `src/stores/chatStore.ts`
+  - secondary client: `src/lib/api-client.ts`
+- Added SSE conversion findings and a gated implementation plan to `task_plan.md` and `findings.md`.
+- Next step: wait for user confirmation, then implement SSE helpers, backend response changes, frontend SSE parsing, and verification.
+- User approved the SSE implementation plan.
+- Added failing SSE protocol check first; initial run failed because `src/lib/sse-stream.ts` did not exist.
+- Implemented shared SSE helpers in `src/lib/sse-stream.ts`.
+- Updated `src/lib/api-error.ts` to encode stream events as SSE and return `text/event-stream`.
+- Updated `src/stores/chatStore.ts` to parse SSE frames from the existing fetch reader flow.
+- Updated `src/lib/api-client.ts` so the secondary stream client parses SSE events and still returns accumulated text.
+- Added `check:sse-stream` script in `package.json`.
+- `npm.cmd run check:sse-stream` passed after correcting the test split point to represent one complete CRLF frame plus one partial following frame.
+- `npm.cmd run lint` passed with 0 errors and the same 2 pre-existing `<img>` warnings.
+- `npm.cmd run build` passed successfully with Next.js 16.2.4.
+- User requested an expanded standard SSE protocol with explicit `metadata` events and unified handling for conversation ID backfill, title updates, errors, stop generation, and persistence.
+- Re-loaded requested skills: `using-superpowers`, `planning-with-files`, and `brainstorming`. `context-engineering` is still not installed; project-context inspection is used instead.
+- Re-read planning files and current stream-related implementation.
+- Re-read local Next.js Route Handler and Streaming docs.
+- Confirmed current gap: wire format is SSE, but stream metadata still travels via response headers and event types are duplicated across backend/store/client/test.
+- User approved the expanded SSE metadata protocol implementation plan.
+- Extended `scripts/check-sse-stream.ts` first to require `metadata` event support and a shared `isChatStreamEvent` guard; the focused check failed as expected before implementation.
+- Added shared chat stream event types and `isChatStreamEvent` to `src/lib/sse-stream.ts`.
+- Updated `src/app/api/chat/route.ts` to emit a first `metadata` SSE event containing `conversationId`, `conversationTitle`, `userMessageId`, and `aiMessageId`.
+- Removed conversation/message metadata response headers from the chat stream response.
+- Updated `src/stores/chatStore.ts` to use `metadata` events for optimistic conversation migration and local message ID replacement.
+- Added `replaceMessageId` to the chat store so persisted user/AI message IDs can replace local optimistic IDs.
+- Updated `src/lib/api-client.ts` and `scripts/check-sse-stream.ts` to use the shared `ChatStreamEvent` type and guard.
+- `npm.cmd run check:sse-stream` passed.
+- `npm.cmd run lint` passed with 0 errors and the same 2 pre-existing `<img>` warnings.
+- `npm.cmd run build` passed successfully with Next.js 16.2.4.

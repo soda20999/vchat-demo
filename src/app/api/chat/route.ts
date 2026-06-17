@@ -14,8 +14,8 @@ import {
   getErrorMessage,
   streamErrorResponse,
   streamResponse,
-  writeStreamError,
 } from '@/lib/api-error';
+import type { ChatStreamEvent } from '@/lib/sse-stream';
 
 export const runtime = 'nodejs';
 
@@ -46,11 +46,6 @@ interface ChatRequestBody {
   };
 }
 
-type ChatStreamEvent =
-  | { type: 'delta'; content: string }
-  | { type: 'done'; content: string }
-  | { type: 'error'; message: string };
-
 function inferProviderName(model: string) {
   if (model.startsWith('deepseek')) return 'deepseek';
   if (model.startsWith('qwen')) return 'qwen';
@@ -76,6 +71,14 @@ function buildConversationTitle(content: string, image?: string) {
   if (content) return content.slice(0, 50);
   if (image) return '[Image]';
   return 'New Chat';
+}
+
+function isAbortError(error: unknown) {
+  return (
+    error instanceof DOMException && error.name === 'AbortError'
+  ) || (
+    error instanceof Error && error.name === 'AbortError'
+  );
 }
 
 async function getProviderId(providerName: string) {
@@ -184,17 +187,47 @@ export async function POST(request: Request) {
 
     const stream = new ReadableStream<Uint8Array>({
       async start(controller) {
+        let isStreamClosed = false;
+        const closeStream = () => {
+          if (isStreamClosed) return;
+          isStreamClosed = true;
+          try {
+            controller.close();
+          } catch {
+            // Client-side aborts can close the controller before server cleanup runs.
+          }
+        };
+        const enqueueEvent = (event: ChatStreamEvent) => {
+          if (isStreamClosed || request.signal.aborted) return;
+          try {
+            controller.enqueue(encodeEvent(event));
+          } catch {
+            isStreamClosed = true;
+          }
+        };
+
         try {
+          enqueueEvent({
+            type: 'metadata',
+            conversationId: conversation.id,
+            conversationTitle: conversation.title,
+            userMessageId: userMessage.id,
+            aiMessageId: aiMessage.id,
+          });
+
           await provider.streamChat(
             chatContext,
             model,
             null,
             (chunk) => {
+              if (request.signal.aborted) return;
+
               aiContent += chunk;
-              controller.enqueue(encodeEvent({ type: 'delta', content: chunk }));
+              enqueueEvent({ type: 'delta', content: chunk });
             },
             image,
-            body.promptSettings
+            body.promptSettings,
+            { signal: request.signal }
           );
 
           await Promise.all([
@@ -204,8 +237,8 @@ export async function POST(request: Request) {
             }),
             conversationService.touchConversation(conversation.id),
           ]);
-          controller.enqueue(encodeEvent({ type: 'done', content: aiContent }));
-          controller.close();
+          enqueueEvent({ type: 'done', content: aiContent });
+          closeStream();
 
           void memoryService.saveUserMemory(userId, content).catch((memoryError) => {
             console.error('Save user memory failed:', memoryError);
@@ -235,23 +268,34 @@ export async function POST(request: Request) {
               });
           }
         } catch (error) {
-          await writeStreamError(
-            controller,
-            error,
-            'AI response failed',
-            () =>
-              markAiMessageError(aiMessage.id, aiContent, conversation.id)
-          );
+          if (request.signal.aborted || isAbortError(error)) {
+            await Promise.all([
+              messageService.updateMessage(aiMessage.id, {
+                content: aiContent,
+                status: 'finished',
+              }),
+              conversationService.touchConversation(conversation.id),
+            ]);
+            closeStream();
+            return;
+          }
+
+          try {
+            await markAiMessageError(aiMessage.id, aiContent, conversation.id);
+          } catch (cleanupError) {
+            console.error('Stream error cleanup failed:', cleanupError);
+          }
+
+          enqueueEvent({
+            type: 'error',
+            message: getErrorMessage(error, 'AI response failed'),
+          });
+          closeStream();
         }
       },
     });
 
-    return streamResponse(stream, {
-      'x-conversation-id': String(conversation.id),
-      'x-conversation-title': encodeURIComponent(conversation.title),
-      'x-user-message-id': String(userMessage.id),
-      'x-ai-message-id': String(aiMessage.id),
-    });
+    return streamResponse(stream);
   } catch (error) {
     return streamErrorResponse(getErrorMessage(error));
   }
