@@ -30,6 +30,8 @@ function scoreMessage(
   const content = message.content.toLowerCase();
   const keywordScore =
     keywords.filter((keyword) => content.includes(keyword)).length * 3;
+  if (keywordScore === 0) return 0;
+
   const roleScore = message.type === 'question' ? 2 : 0;
   const imageScore = message.image ? 1 : 0;
   const recencyScore = total > 1 ? index / (total - 1) : 0;

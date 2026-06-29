@@ -2,6 +2,8 @@ import { create } from 'zustand';
 import { produce } from 'immer';
 
 import { LOCAL_PROVIDERS } from '@/config/providers';
+import { consumeChatStream } from '@/lib/chat-stream-client';
+import type { ChatStreamEvent } from '@/lib/sse-stream';
 import type { Conversation, Message, Provider } from '@/types';
 
 /**
@@ -39,11 +41,6 @@ interface ApiEnvelope<T> {
   code?: number;
   data: T;
 }
-
-type ChatStreamEvent =
-  | { type: 'delta'; content: string }
-  | { type: 'done'; content: string }
-  | { type: 'error'; message: string };
 
 interface ChatState {
   conversations: Conversation[];
@@ -87,6 +84,7 @@ interface ChatState {
   appendMessageChunk: (messageId: number, text: string) => void;
   updateMessageStatus: (messageId: number, status: Message['status']) => void;
   updateMessageError: (messageId: number, message: string) => void;
+  replaceMessageId: (oldId: number, newId: number) => void;
   assignNewConversationId: (oldId: number, newId: number, title: string) => void;
 }
 
@@ -141,22 +139,6 @@ async function fetchApi<T>(input: string, init?: RequestInit): Promise<T> {
   }
 
   return payload.data;
-}
-
-/**
- * 函数名翻译：解析流式单行数据
- * 做的事：后端流式接口使用 NDJSON（每行一个完整 JSON 字符串），这里负责安全地将单行文本解析为前端可识别的 ChatStreamEvent 结构。
- * 参数：
- *   - line: 从流中读取的单行文本字符串 (string)
- */
-function parseStreamLine(line: string): ChatStreamEvent | null {
-  if (!line.trim()) return null;
-
-  try {
-    return JSON.parse(line) as ChatStreamEvent;
-  } catch {
-    return null;
-  }
 }
 
 /**
@@ -303,7 +285,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
     );
     const abortController = new AbortController();
     // 固定本次 AI 回答的消息 id，避免在并发场景下流式 chunk 误追加到后续新消息上。
-    const activeAnswerId = aiPlaceholder.id;
+    let activeAnswerId = aiPlaceholder.id;
     activeAbortController = abortController;
 
     try {
@@ -340,38 +322,31 @@ export const useChatStore = create<ChatState>((set, get) => ({
         throw new Error(errorMessage);
       }
 
-      const realConversationId = Number(
-        response.headers.get('x-conversation-id')
-      );
-      const encodedTitle = response.headers.get('x-conversation-title');
-      const realConversationTitle = encodedTitle
-        ? decodeURIComponent(encodedTitle)
-        : undefined;
-
-      if (
-        typeof conversationIdForUi === 'number' &&
-        conversationIdForUi < 0 &&
-        Number.isFinite(realConversationId) &&
-        realConversationId > 0
-      ) {
-        // 如果是首条消息创建的新会话，此时收到后端真实 ID，触发迁移，把本地临时会话和消息都归入真实会话 id。
-        get().assignNewConversationId(
-          conversationIdForUi,
-          realConversationId,
-          realConversationTitle || trimmedContent.slice(0, 20)
-        );
-      }
-
       if (!response.body) {
         throw new Error('Response body is empty');
       }
 
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-      let streamBuffer = '';
-
       // 内部辅助方法：根据服务端事件类型更新当前 AI 消息：追加文本、完成流或标记错误。
       const handleStreamEvent = (event: ChatStreamEvent) => {
+        if (event.type === 'metadata') {
+          if (
+            typeof conversationIdForUi === 'number' &&
+            conversationIdForUi < 0
+          ) {
+            get().assignNewConversationId(
+              conversationIdForUi,
+              event.conversationId,
+              event.conversationTitle
+            );
+            conversationIdForUi = event.conversationId;
+          }
+
+          get().replaceMessageId(userMessage.id, event.userMessageId);
+          get().replaceMessageId(activeAnswerId, event.aiMessageId);
+          activeAnswerId = event.aiMessageId;
+          return;
+        }
+
         if (event.type === 'delta') {
           get().appendMessageChunk(activeAnswerId, event.content);
           return;
@@ -387,27 +362,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
         }
       };
 
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        // TextDecoder 可能一次读到半行或多行，所以用 streamBuffer 缓存未完整结束的最后一行。
-        streamBuffer += decoder.decode(value, { stream: true });
-        const lines = streamBuffer.split('\n');
-        streamBuffer = lines.pop() || '';
-
-        for (const line of lines) {
-          const event = parseStreamLine(line);
-          if (event) handleStreamEvent(event);
-        }
-      }
-
-      // 处理流结束时 decoder 缓冲区中剩余的字节和最后一行事件。
-      streamBuffer += decoder.decode();
-      if (streamBuffer.trim()) {
-        const event = parseStreamLine(streamBuffer);
-        if (event) handleStreamEvent(event);
-      }
+      await consumeChatStream(response.body, {
+        onEvent: handleStreamEvent,
+      });
     } catch (error) {
       // 捕获用户主动点击 Stop 导致的异常，此时安全地结束消息，将其状态置为 finished 即可。
       if (error instanceof DOMException && error.name === 'AbortError') {
@@ -656,6 +613,19 @@ export const useChatStore = create<ChatState>((set, get) => ({
         message.content = message.content
           ? `${message.content}\n\n[Error] ${errorMessage}`
           : `[Error] ${errorMessage}`;
+      })
+    );
+  },
+
+  replaceMessageId: (oldId, newId) => {
+    if (oldId === newId) return;
+
+    set(
+      produce<ChatState>((draft) => {
+        const message = draft.messages.find((item) => item.id === oldId);
+        if (message) {
+          message.id = newId;
+        }
       })
     );
   },

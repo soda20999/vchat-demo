@@ -1,117 +1,285 @@
 'use client';
 
-// 文件作用：渲染登录/注册页面，提交账号信息并根据结果切换页面状态。
+import { Icon } from '@iconify/react';
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import type { FormEvent } from 'react';
+import { useMemo, useState } from 'react';
 
 type Mode = 'login' | 'register';
+type NoticeKind = 'error' | 'success';
 
-// 函数名：AuthPage；简单介绍：管理登录和注册表单，成功登录后返回首页。
+type Notice = {
+  kind: NoticeKind;
+  text: string;
+};
+
+type ApiResponse = {
+  code?: number;
+  message?: string;
+};
+
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+const TEXT = {
+  username: '用户名',
+  email: '邮箱',
+  password: '密码',
+  usernamePlaceholder: '请输入用户名',
+  emailPlaceholder: '请输入邮箱',
+  signInTab: '登录',
+  registerTab: '注册',
+  passwordLoginHint: '请输入密码',
+  passwordRegisterHint: '至少 6 位字符',
+  usernameRequired: '用户名至少需要 2 个字符',
+  emailRequired: '请输入邮箱',
+  emailInvalid: '请输入有效邮箱',
+  passwordRequired: '请输入密码',
+  passwordTooShort: '密码至少需要 6 位字符',
+  requestFailed: '请求失败，请稍后再试',
+  registerSuccess: '注册成功，请使用新账号登录',
+  agreement: '登录注册即代表已阅读并同意我们的',
+  userAgreement: '用户协议',
+  privacyPolicy: '隐私政策',
+  and: '与',
+  registerHint: '没有账号可切换注册',
+};
+
+const MODE_COPY = {
+  login: {
+    submit: '登录',
+    loading: '正在登录...',
+  },
+  register: {
+    submit: '注册',
+    loading: '正在注册...',
+  },
+} satisfies Record<
+  Mode,
+  {
+    submit: string;
+    loading: string;
+  }
+>;
+
+async function readApiResponse(response: Response): Promise<ApiResponse> {
+  const text = await response.text();
+  if (!text) return {};
+
+  try {
+    return JSON.parse(text) as ApiResponse;
+  } catch {
+    return { message: text };
+  }
+}
+
 export default function AuthPage() {
   const router = useRouter();
   const [mode, setMode] = useState<Mode>('login');
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [message, setMessage] = useState('');
+  const [notice, setNotice] = useState<Notice | null>(null);
   const [loading, setLoading] = useState(false);
 
-  // submit：根据当前 mode 调用登录或注册接口，并处理成功/失败提示。
-  const submit = async () => {
+  const copy = MODE_COPY[mode];
+  const passwordHint = useMemo(
+    () => mode === 'register' ? TEXT.passwordRegisterHint : TEXT.passwordLoginHint,
+    [mode]
+  );
+
+  const switchMode = (nextMode: Mode) => {
+    if (loading || nextMode === mode) return;
+    setMode(nextMode);
+    setNotice(null);
+  };
+
+  const validate = () => {
+    const trimmedEmail = email.trim();
+    const trimmedUsername = username.trim();
+
+    if (mode === 'register' && trimmedUsername.length < 2) {
+      return TEXT.usernameRequired;
+    }
+
+    if (!trimmedEmail) return TEXT.emailRequired;
+    if (!EMAIL_PATTERN.test(trimmedEmail)) return TEXT.emailInvalid;
+    if (!password) return TEXT.passwordRequired;
+    if (mode === 'register' && password.length < 6) {
+      return TEXT.passwordTooShort;
+    }
+
+    return '';
+  };
+
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    const validationError = validate();
+    if (validationError) {
+      setNotice({ kind: 'error', text: validationError });
+      return;
+    }
+
     setLoading(true);
-    setMessage('');
+    setNotice(null);
 
     try {
+      const payload = mode === 'login'
+        ? { email: email.trim(), password }
+        : { username: username.trim(), email: email.trim(), password };
+
       const response = await fetch(
         mode === 'login' ? '/api/auth/login' : '/api/auth/register',
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(
-            mode === 'login'
-              ? { email, password }
-              : { username, email, password }
-          ),
+          body: JSON.stringify(payload),
         }
       );
 
-      const text = await response.text();
-      const result = text ? JSON.parse(text) : {};
+      const result = await readApiResponse(response);
       if (!response.ok || (result.code !== undefined && result.code !== 200)) {
-        throw new Error(result.message || text || 'Request failed');
+        throw new Error(result.message || TEXT.requestFailed);
       }
 
       if (mode === 'register') {
         setMode('login');
-        setMessage('注册成功，请登录');
+        setPassword('');
+        setNotice({ kind: 'success', text: TEXT.registerSuccess });
         return;
       }
 
       router.push('/');
       router.refresh();
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'Request failed');
+      setNotice({
+        kind: 'error',
+        text: error instanceof Error ? error.message : TEXT.requestFailed,
+      });
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-[#141414] p-6 text-white">
-      <div className="w-full max-w-sm rounded-xl border border-white/10 bg-[#1f1f1f] p-6">
-        <div className="mb-4 flex gap-2">
-          <button
-            className={`rounded px-3 py-2 text-sm ${mode === 'login' ? 'bg-white text-black' : 'bg-[#2a2a2a]'}`}
-            onClick={() => setMode('login')}
-          >
-            登录
-          </button>
-          <button
-            className={`rounded px-3 py-2 text-sm ${mode === 'register' ? 'bg-white text-black' : 'bg-[#2a2a2a]'}`}
-            onClick={() => setMode('register')}
-          >
-            注册
-          </button>
-        </div>
+    <main className="min-h-screen overflow-hidden bg-[#101112] text-white">
+      <div className="flex min-h-screen w-full flex-col items-center justify-center px-5 py-10">
+        <section className="flex w-full max-w-[414px] flex-col items-center">
+          <div className="mb-14 flex items-center gap-3 text-[#5b86ff]">
+            <Icon icon="lucide:messages-square" className="h-9 w-9" />
+            <span className="text-[34px] font-semibold leading-none">vchat</span>
+          </div>
 
-        <div className="space-y-3">
-          {mode === 'register' ? (
-            <input
-              className="w-full rounded border border-white/10 bg-[#111] px-3 py-2 outline-none"
-              placeholder="用户名"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-            />
-          ) : null}
+          <div className="w-full">
+            <div className="mb-7 grid grid-cols-2 rounded-full border border-[#2c2d30] bg-[#18191b] p-1">
+              <button
+                type="button"
+                onClick={() => switchMode('login')}
+                className={`rounded-full px-3 py-2.5 text-sm font-medium transition ${
+                  mode === 'login'
+                    ? 'bg-[#5b86ff] text-white shadow-[0_8px_24px_rgba(91,134,255,0.24)]'
+                    : 'text-[#8d94a1] hover:text-white'
+                }`}
+              >
+                {TEXT.signInTab}
+              </button>
+              <button
+                type="button"
+                onClick={() => switchMode('register')}
+                className={`rounded-full px-3 py-2.5 text-sm font-medium transition ${
+                  mode === 'register'
+                    ? 'bg-[#5b86ff] text-white shadow-[0_8px_24px_rgba(91,134,255,0.24)]'
+                    : 'text-[#8d94a1] hover:text-white'
+                }`}
+              >
+                {TEXT.registerTab}
+              </button>
+            </div>
 
-          <input
-            className="w-full rounded border border-white/10 bg-[#111] px-3 py-2 outline-none"
-            placeholder="邮箱"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-          />
+            <form className="space-y-7" onSubmit={(event) => void handleSubmit(event)}>
+              {mode === 'register' ? (
+                <label className="block">
+                  <span className="sr-only">{TEXT.username}</span>
+                  <input
+                    value={username}
+                    onChange={(event) => setUsername(event.target.value)}
+                    disabled={loading}
+                    autoComplete="username"
+                    className="h-[60px] w-full rounded-full border border-[#303136] bg-[#191a1c] px-6 text-[16px] text-white outline-none transition placeholder:text-[#737985] focus:border-[#5b86ff] disabled:cursor-not-allowed disabled:opacity-60"
+                    placeholder={TEXT.usernamePlaceholder}
+                  />
+                </label>
+              ) : null}
 
-          <input
-            type="password"
-            className="w-full rounded border border-white/10 bg-[#111] px-3 py-2 outline-none"
-            placeholder="密码"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-          />
+              <label className="block">
+                <span className="sr-only">{TEXT.email}</span>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(event) => setEmail(event.target.value)}
+                  disabled={loading}
+                  autoComplete="email"
+                  className="h-[60px] w-full rounded-full border border-[#303136] bg-[#191a1c] px-6 text-[16px] text-white outline-none transition placeholder:text-[#737985] focus:border-[#5b86ff] disabled:cursor-not-allowed disabled:opacity-60"
+                  placeholder={TEXT.emailPlaceholder}
+                />
+              </label>
 
-          <button
-            className="w-full rounded bg-white px-3 py-2 text-black disabled:opacity-50"
-            onClick={() => void submit()}
-            disabled={loading}
-          >
-            {loading ? '提交中...' : mode === 'login' ? '登录' : '注册'}
-          </button>
+              <label className="block">
+                <span className="sr-only">{TEXT.password}</span>
+                <input
+                  type="password"
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                  disabled={loading}
+                  autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
+                  className="h-[60px] w-full rounded-full border border-[#303136] bg-[#191a1c] px-6 text-[16px] text-white outline-none transition placeholder:text-[#737985] focus:border-[#5b86ff] disabled:cursor-not-allowed disabled:opacity-60"
+                  placeholder={passwordHint}
+                />
+              </label>
 
-          {message ? (
-            <div className="text-sm text-[#d0d0d0]">{message}</div>
-          ) : null}
-        </div>
+              <p className="min-h-[46px] text-center text-sm leading-[22px] text-[#8d94a1]">
+                {TEXT.agreement}
+                <button type="button" className="mx-1 font-medium text-[#d5d8df] underline underline-offset-4">
+                  {TEXT.userAgreement}
+                </button>
+                {TEXT.and}
+                <button type="button" className="mx-1 font-medium text-[#d5d8df] underline underline-offset-4">
+                  {TEXT.privacyPolicy}
+                </button>
+                {mode === 'login' ? (
+                  <>
+                    <span>，</span>
+                    {TEXT.registerHint}
+                  </>
+                ) : null}
+              </p>
+
+              <button
+                type="submit"
+                disabled={loading}
+                className="flex h-[56px] w-full items-center justify-center gap-2 rounded-full bg-[#5b86ff] px-4 text-[16px] font-semibold text-white transition hover:bg-[#6b92ff] disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {loading ? (
+                  <Icon icon="lucide:loader-2" className="h-4 w-4 animate-spin" />
+                ) : null}
+                {loading ? copy.loading : copy.submit}
+              </button>
+            </form>
+
+            <div className="mt-5 min-h-6 text-center">
+              {notice ? (
+                <p
+                  className={`text-sm ${
+                    notice.kind === 'success' ? 'text-[#8ee7ad]' : 'text-[#ff9e9e]'
+                  }`}
+                >
+                  {notice.text}
+                </p>
+              ) : null}
+            </div>
+          </div>
+        </section>
       </div>
-    </div>
+    </main>
   );
 }
