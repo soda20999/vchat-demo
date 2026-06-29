@@ -15,6 +15,7 @@ import {
   streamErrorResponse,
   streamResponse,
 } from '@/lib/api-error';
+import { logger } from '@/lib/logger';
 import type { ChatStreamEvent } from '@/lib/sse-stream';
 
 export const runtime = 'nodejs';
@@ -93,6 +94,12 @@ async function getProviderId(providerName: string) {
 }
 
 export async function POST(request: Request) {
+  const startedAt = Date.now();
+  let logContext: Record<string, unknown> = {
+    scope: 'api.chat',
+    streamStatus: 'started',
+  };
+
   try {
     const body = (await request.json()) as ChatRequestBody;
     const content = body.content?.trim() || '';
@@ -105,6 +112,25 @@ export async function POST(request: Request) {
       typeof body.conversationId === 'number' && body.conversationId > 0
         ? body.conversationId
         : null;
+    logContext = {
+      ...logContext,
+      userId,
+      requestedConversationId,
+      requestedModel,
+      model,
+      providerName,
+      hasImage: Boolean(image),
+      contentLength: content.length,
+      memoryEnabled: body.contextOptions?.memoryEnabled !== false,
+      summaryEnabled: body.contextOptions?.summaryEnabled !== false,
+      relevantHistoryEnabled:
+        body.contextOptions?.relevantHistoryEnabled !== false,
+      recentTurns: body.contextOptions?.recentTurns,
+      templateId: body.promptSettings?.templateId,
+      temperature: body.promptSettings?.temperature,
+      topP: body.promptSettings?.topP,
+      maxTokens: body.promptSettings?.maxTokens,
+    };
 
     if (!userId) return streamErrorResponse('Unauthorized');
     if (!requestedModel) return streamErrorResponse('Model is required');
@@ -113,6 +139,8 @@ export async function POST(request: Request) {
       return streamErrorResponse('Message content is required');
     }
     if (!providerName) return streamErrorResponse('Provider is required');
+
+    logger.info('Chat request started', logContext);
 
     const provider = getAIProvider(providerName);
     const cachedProviderId = requestedConversationId
@@ -134,6 +162,11 @@ export async function POST(request: Request) {
         userId
       );
     }
+    logContext = {
+      ...logContext,
+      conversationId: conversation.id,
+      conversationCreated: !requestedConversationId,
+    };
 
     const historyMessages = await messageService.getConversationMessages(
       conversation.id
@@ -143,10 +176,18 @@ export async function POST(request: Request) {
         ? []
         : await memoryService.getRelevantMemories(userId, content).catch(
             (memoryError) => {
-              console.error('Load relevant memories failed:', memoryError);
+              logger.warn('Load relevant memories failed', {
+                ...logContext,
+                error: memoryError,
+              });
               return [];
             }
           );
+    logContext = {
+      ...logContext,
+      historyCount: historyMessages.length,
+      memoryHitCount: memories.length,
+    };
     const template = body.promptSettings?.templateId
       ? getPromptTemplate(body.promptSettings.templateId)
       : undefined;
@@ -180,6 +221,11 @@ export async function POST(request: Request) {
     ]);
 
     await conversationService.touchConversation(conversation.id);
+    logContext = {
+      ...logContext,
+      userMessageId: userMessage.id,
+      aiMessageId: aiMessage.id,
+    };
 
     let aiContent = '';
     const encodeEvent = (event: ChatStreamEvent) =>
@@ -238,10 +284,19 @@ export async function POST(request: Request) {
             conversationService.touchConversation(conversation.id),
           ]);
           enqueueEvent({ type: 'done', content: aiContent });
+          logger.info('Chat stream finished', {
+            ...logContext,
+            streamStatus: 'done',
+            outputLength: aiContent.length,
+            durationMs: Date.now() - startedAt,
+          });
           closeStream();
 
           void memoryService.saveUserMemory(userId, content).catch((memoryError) => {
-            console.error('Save user memory failed:', memoryError);
+            logger.warn('Save user memory failed', {
+              ...logContext,
+              error: memoryError,
+            });
           });
 
           if (shouldSummarizeContext(model, historyMessages.length + 2)) {
@@ -264,7 +319,10 @@ export async function POST(request: Request) {
                 )
               )
               .catch((summaryError) => {
-                console.error('Summarize conversation failed:', summaryError);
+                logger.warn('Summarize conversation failed', {
+                  ...logContext,
+                  error: summaryError,
+                });
               });
           }
         } catch (error) {
@@ -276,6 +334,12 @@ export async function POST(request: Request) {
               }),
               conversationService.touchConversation(conversation.id),
             ]);
+            logger.info('Chat stream aborted', {
+              ...logContext,
+              streamStatus: 'aborted',
+              outputLength: aiContent.length,
+              durationMs: Date.now() - startedAt,
+            });
             closeStream();
             return;
           }
@@ -283,9 +347,19 @@ export async function POST(request: Request) {
           try {
             await markAiMessageError(aiMessage.id, aiContent, conversation.id);
           } catch (cleanupError) {
-            console.error('Stream error cleanup failed:', cleanupError);
+            logger.error('Stream error cleanup failed', {
+              ...logContext,
+              error: cleanupError,
+            });
           }
 
+          logger.error('Chat stream failed', {
+            ...logContext,
+            streamStatus: 'error',
+            outputLength: aiContent.length,
+            durationMs: Date.now() - startedAt,
+            error,
+          });
           enqueueEvent({
             type: 'error',
             message: getErrorMessage(error, 'AI response failed'),
@@ -297,6 +371,12 @@ export async function POST(request: Request) {
 
     return streamResponse(stream);
   } catch (error) {
+    logger.error('Chat request failed', {
+      ...logContext,
+      streamStatus: 'error',
+      durationMs: Date.now() - startedAt,
+      error,
+    });
     return streamErrorResponse(getErrorMessage(error));
   }
 }
