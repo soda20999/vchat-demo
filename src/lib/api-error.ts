@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { encodeSseEvent, type ChatStreamErrorEvent } from '@/lib/sse-stream';
+import { logger } from './logger';
 
 type StreamErrorEvent = ChatStreamErrorEvent;
 
@@ -40,7 +41,11 @@ export function jsonExceptionResponse(
   fallback = 'Internal Server Error',
   code = 500
 ) {
-  console.error(fallback, error);
+  logger.error(fallback, {
+    scope: 'api.exception',
+    statusCode: code,
+    error,
+  });
   return jsonErrorResponse(getErrorMessage(error, fallback), code);
 }
 
@@ -83,7 +88,10 @@ export async function writeStreamError(
   try {
     await beforeWrite?.();
   } catch (cleanupError) {
-    console.error('Stream error cleanup failed:', cleanupError);
+    logger.error('Stream error cleanup failed', {
+      scope: 'api.stream',
+      error: cleanupError,
+    });
   }
 
   controller.enqueue(encodeStreamEvent<StreamErrorEvent>({
