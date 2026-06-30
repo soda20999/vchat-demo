@@ -1,10 +1,8 @@
 'use client';
 
-// 文件作用：渲染应用左侧导航栏，包含折叠菜单、新建会话、会话列表和设置入口。
 import { Icon } from '@iconify/react';
-import Link from 'next/link';
-import { usePathname } from 'next/navigation';
-import React, { useState } from 'react';
+import { usePathname, useRouter } from 'next/navigation';
+import { useState } from 'react';
 
 import { ConversationList } from '@/components/Chat/ConversationList';
 import { SidebarButton } from '@/components/Ui/SidebarButton';
@@ -17,17 +15,85 @@ const ACTIONS = [
   { icon: 'lucide:badge-star', label: '我的内容' },
 ];
 
-// 函数名：Sidebar；简单介绍：根据当前路由和展开状态渲染侧边栏，并提供新建会话入口。
+function SettingsMenu({
+  open,
+  expanded,
+  loggingOut,
+  errorMessage,
+  onLogout,
+}: {
+  open: boolean;
+  expanded: boolean;
+  loggingOut: boolean;
+  errorMessage: string;
+  onLogout: () => void;
+}) {
+  if (!open) return null;
+
+  return (
+    <div
+      className={`absolute bottom-14 z-40 w-[248px] rounded-[20px] bg-[#202020] px-2 py-2 shadow-[0_18px_40px_rgba(0,0,0,0.45)] ${
+        expanded ? 'right-4' : 'left-5'
+      }`}
+    >
+      <button
+        type="button"
+        onClick={onLogout}
+        disabled={loggingOut}
+        className="flex h-10 w-full items-center gap-3 rounded-[14px] border border-transparent bg-[#202020] px-3 text-left text-[14px] font-semibold text-[#ef4444] transition-[border-color,background-color,box-shadow] duration-150 hover:border-[#ef4444] hover:bg-[#252020] hover:shadow-[0_0_14px_rgba(239,68,68,0.22)] disabled:cursor-not-allowed disabled:opacity-60"
+      >
+        <Icon icon="lucide:log-out" className="h-5 w-5 shrink-0 text-[#ef4444]" />
+        <span>{loggingOut ? '正在登出...' : '登出账号'}</span>
+      </button>
+      {errorMessage ? (
+        <p className="px-3 pt-2 text-[12px] leading-5 text-red-400">{errorMessage}</p>
+      ) : null}
+    </div>
+  );
+}
+
 export function Sidebar() {
   const pathname = usePathname();
+  const router = useRouter();
   const [expanded, setExpanded] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
+  const [logoutError, setLogoutError] = useState('');
   const switchConversation = useChatStore((state) => state.switchConversation);
 
   if (pathname === '/auth') return null;
 
-  // handleNewConversation：切换到临时新会话，用于开始一段新的聊天。
   const handleNewConversation = async () => {
+    setSettingsOpen(false);
     await switchConversation(0);
+  };
+
+  const handleLogout = async () => {
+    setLoggingOut(true);
+    setLogoutError('');
+
+    try {
+      const response = await fetch('/api/auth/logout', {
+        method: 'POST',
+        credentials: 'include',
+      });
+
+      if (!response.ok) {
+        const body = await response.json().catch(() => null);
+        throw new Error(body?.message || '登出失败，请稍后重试');
+      }
+
+      router.refresh();
+      router.replace('/auth');
+    } catch (error) {
+      setLogoutError(error instanceof Error ? error.message : '登出失败，请稍后重试');
+      setLoggingOut(false);
+    }
+  };
+
+  const toggleSettings = () => {
+    setLogoutError('');
+    setSettingsOpen((value) => !value);
   };
 
   return (
@@ -36,6 +102,14 @@ export function Sidebar() {
         expanded ? 'w-[286px]' : 'w-[64px]'
       }`}
     >
+      <SettingsMenu
+        open={settingsOpen}
+        expanded={expanded}
+        loggingOut={loggingOut}
+        errorMessage={logoutError}
+        onLogout={() => void handleLogout()}
+      />
+
       <div
         className={`flex h-full flex-col ${
           expanded ? 'px-4 py-3' : 'items-center px-0 py-2.5'
@@ -82,7 +156,7 @@ export function Sidebar() {
                       key={item.label}
                       icon={<Icon icon={item.icon} className="h-4.5 w-4.5 text-[#d4d4d4]" />}
                       onClick={() => void handleNewConversation()}
-                      textClassName="font-semibold tracking-[-0.01em] text-[#d6d6d6]"
+                      textClassName="font-semibold text-[#d6d6d6]"
                     >
                       {item.label}
                     </SidebarButton>
@@ -93,7 +167,7 @@ export function Sidebar() {
                   <SidebarButton
                     key={item.label}
                     icon={<Icon icon={item.icon} className="h-4.5 w-4.5 text-[#d4d4d4]" />}
-                    textClassName="font-semibold tracking-[-0.01em] text-[#d6d6d6]"
+                    textClassName="font-semibold text-[#d6d6d6]"
                   >
                     {item.label}
                   </SidebarButton>
@@ -145,28 +219,40 @@ export function Sidebar() {
             </button>
 
             <div className="mb-3 mt-auto flex flex-col items-center gap-3">
-              <Link
-                href="/settings"
+              <button
+                type="button"
                 aria-label="设置"
-                className="relative flex h-9 w-9 items-center justify-center rounded-xl text-[#d4d4d4] transition-colors hover:bg-[#2a2a2a] hover:text-white"
+                aria-expanded={settingsOpen}
+                onClick={toggleSettings}
+                className={`relative flex h-9 w-9 items-center justify-center rounded-xl transition-colors ${
+                  settingsOpen
+                    ? 'bg-[#2a2a2a] text-white'
+                    : 'text-[#d4d4d4] hover:bg-[#2a2a2a] hover:text-white'
+                }`}
               >
                 <Icon icon="lucide:settings" className="h-4.5 w-4.5" />
                 <span className="absolute -right-1 top-0 h-2.5 w-2.5 rounded-full bg-[#8fb2ff]" />
-              </Link>
+              </button>
             </div>
           </div>
         )}
 
         {expanded ? (
-          <div className="pt-2.5">
-            <Link
-              href="/settings"
+          <div className="flex justify-end pt-2.5">
+            <button
+              type="button"
               aria-label="设置"
-              className="relative flex h-9 w-9 items-center justify-center rounded-xl text-[#d4d4d4] transition-colors hover:bg-[#2a2a2a] hover:text-white"
+              aria-expanded={settingsOpen}
+              onClick={toggleSettings}
+              className={`relative flex h-9 w-9 items-center justify-center rounded-xl transition-colors ${
+                settingsOpen
+                  ? 'bg-[#2a2a2a] text-white'
+                  : 'text-[#d4d4d4] hover:bg-[#2a2a2a] hover:text-white'
+              }`}
             >
               <Icon icon="lucide:settings" className="h-4.5 w-4.5" />
               <span className="absolute right-1 top-1 h-2.5 w-2.5 rounded-full bg-[#8fb2ff]" />
-            </Link>
+            </button>
           </div>
         ) : null}
       </div>
