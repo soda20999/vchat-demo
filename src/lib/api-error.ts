@@ -29,11 +29,14 @@ export function jsonSuccessResponse<T>(
 }
 
 export function jsonErrorResponse(message: string, code = 500) {
-  return NextResponse.json({
-    code,
-    message,
-    timestamp: Date.now(),
-  });
+  return NextResponse.json(
+    {
+      code,
+      message,
+      timestamp: Date.now(),
+    },
+    { status: code }
+  );
 }
 
 export function jsonExceptionResponse(

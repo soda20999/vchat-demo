@@ -1,35 +1,53 @@
-import { NextRequest } from 'next/server';
+import { NextRequest, type NextResponse } from 'next/server';
 
 import * as refreshTokenService from '@/db/service/refresh-token';
 import { hashRefreshToken } from '@/lib/auth/generate-token';
-import { jsonSuccessResponse } from '@/lib/api-error';
+import { jsonErrorResponse, jsonSuccessResponse } from '@/lib/api-error';
 
 export const runtime = 'nodejs';
 
 const ACCESS_TOKEN_COOKIE = 'access_token';
 const REFRESH_TOKEN_COOKIE = 'refresh_token';
 
-export async function POST(req: NextRequest) {
-  const refreshToken = req.cookies.get(REFRESH_TOKEN_COOKIE)?.value;
+function isSecureCookie() {
+  return process.env.NODE_ENV === 'production';
+}
 
-  if (refreshToken) {
-    const refreshTokenHash = await hashRefreshToken(refreshToken);
-    await refreshTokenService.revokeRefreshTokenByHash(refreshTokenHash);
-  }
-
-  const response = jsonSuccessResponse({ ok: true }, 'Logout successful');
-
+function expireAuthCookies(response: NextResponse) {
   response.cookies.set(ACCESS_TOKEN_COOKIE, '', {
     httpOnly: true,
+    secure: isSecureCookie(),
+    sameSite: 'lax',
     path: '/',
     maxAge: 0,
   });
 
   response.cookies.set(REFRESH_TOKEN_COOKIE, '', {
     httpOnly: true,
+    secure: isSecureCookie(),
+    sameSite: 'lax',
     path: '/api/auth/refresh',
     maxAge: 0,
   });
+}
 
-  return response;
+export async function POST(req: NextRequest) {
+  try {
+    const refreshToken = req.cookies.get(REFRESH_TOKEN_COOKIE)?.value;
+
+    if (refreshToken) {
+      const refreshTokenHash = await hashRefreshToken(refreshToken);
+      await refreshTokenService.revokeRefreshTokenByHash(refreshTokenHash);
+    }
+
+    const response = jsonSuccessResponse({ ok: true }, 'Logout successful');
+    expireAuthCookies(response);
+
+    return response;
+  } catch {
+    const response = jsonErrorResponse('Logout failed', 500);
+    expireAuthCookies(response);
+
+    return response;
+  }
 }
