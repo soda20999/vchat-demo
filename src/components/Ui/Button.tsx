@@ -31,9 +31,7 @@ export const Button: React.FC<ButtonProps> = ({
     <button className={`${baseClasses} ${colorClasses} ${className}`} {...props}>
       <div className="flex items-center gap-2 overflow-hidden">
         {icon && (
-          <div className="flex-shrink-0 w-4 h-4 flex items-center justify-center">
-            {icon}
-          </div>
+          <div className="flex-shrink-0 w-4 h-4 flex items-center justify-center">{icon}</div>
         )}
         <span className="text-xs font-medium truncate">{children}</span>
       </div>

@@ -58,8 +58,7 @@ export const MessageList: React.FC = () => {
         onScrollCapture={(event) => {
           const scroller = event.currentTarget;
           const scrollTop = scroller.scrollTop;
-          const distanceToBottom =
-            scroller.scrollHeight - scrollTop - scroller.clientHeight;
+          const distanceToBottom = scroller.scrollHeight - scrollTop - scroller.clientHeight;
 
           if (scrollTop < lastScrollTopRef.current - 2) {
             setStickToBottom(false);

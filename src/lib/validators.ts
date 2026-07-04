@@ -1,5 +1,8 @@
 import { z } from 'zod';
 
+export { chatContextOptionsSchema, chatPromptSettingsSchema, sendMessageSchema } from '@/types/api';
+export type { ChatContextOptions, ChatPromptSettings, SendMessagePayload } from '@/types/api';
+
 export const registerSchema = z.object({
   username: z.string().min(2).max(50),
   email: z.string().email(),
@@ -45,17 +48,6 @@ export const updateMessageSchema = z.object({
   status: z.enum(['loading', 'streaming', 'finished', 'error']).optional(),
 });
 
-export const sendMessageSchema = z
-  .object({
-    conversationId: z.number().int().positive().optional(),
-    content: z.string().trim().optional().default(''),
-    model: z.string().min(1),
-    image: z.string().optional(),
-  })
-  .refine((value) => value.content || value.image, {
-    message: 'Message content or image is required',
-  });
-
 export const createProviderSchema = z.object({
   name: z.string().min(1),
   title: z.string().optional(),
@@ -72,5 +64,4 @@ export type CreateConversationPayload = z.infer<typeof createConversationSchema>
 export type UpdateConversationPayload = z.infer<typeof updateConversationSchema>;
 export type CreateMessagePayload = z.infer<typeof createMessageSchema>;
 export type UpdateMessagePayload = z.infer<typeof updateMessageSchema>;
-export type SendMessagePayload = z.infer<typeof sendMessageSchema>;
 export type CreateProviderPayload = z.infer<typeof createProviderSchema>;

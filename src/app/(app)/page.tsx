@@ -21,10 +21,7 @@ export default function HomePage() {
   const switchConversation = useChatStore((state) => state.switchConversation);
 
   // handleSendMessage：接收输入框提交的消息内容并转交给聊天状态。
-  const handleSendMessage = async (payload: {
-    content: string;
-    image?: string;
-  }) => {
+  const handleSendMessage = async (payload: { content: string; image?: string }) => {
     await sendMessage(payload);
   };
 
@@ -52,11 +49,7 @@ export default function HomePage() {
       )}
 
       <div className="flex flex-none items-center py-4">
-        <MessageInput
-          selectedModel={selectedModel}
-          conversationId={0}
-          onSend={handleSendMessage}
-        />
+        <MessageInput selectedModel={selectedModel} conversationId={0} onSend={handleSendMessage} />
       </div>
     </div>
   );

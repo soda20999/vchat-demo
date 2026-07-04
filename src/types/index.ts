@@ -13,12 +13,22 @@ export type {
   UpdateUserProfilePayload,
   UpdateUserPasswordPayload,
   UserErrorType,
-  ApiResponse,
 } from './user';
+
+export type {
+  ApiErrorEnvelope,
+  ApiResponse,
+  ApiResponseEnvelope,
+  ChatContextOptions,
+  ChatPromptSettings,
+  SendMessagePayload,
+} from './api';
+export { sendMessageSchema } from './api';
 
 // Message 相关类型
 export type {
   Message,
+  MessageDto,
   MessageStatus,
   MessageProps,
   CreateMessagePayload,
@@ -27,6 +37,7 @@ export type {
 // Conversation 相关类型
 export type {
   Conversation,
+  ConversationDto,
   ConversationProps,
   ConversationUIState,
   CreateConversationPayload,
@@ -34,8 +45,4 @@ export type {
 } from './chat';
 
 // Provider 相关类型
-export type {
-  Provider,
-  ProviderProps,
-  CreateProviderPayload,
-} from './provide';
+export type { Provider, ProviderProps, CreateProviderPayload } from './provide';

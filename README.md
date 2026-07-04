@@ -210,6 +210,149 @@ docker exec -it vchat-postgres psql -U mumu -d vchat_db -c "SELECT id, content, 
 docker compose up -d --build
 ```
 
+## 开发与工程化说明
+
+### 运行环境
+
+- 推荐使用 Node.js 20，和 GitHub Actions CI 保持一致。
+- npm 版本使用 10.x。`package.json` 通过 `engines` 声明了 Node/npm 版本范围。
+
+### 本地开发
+
+首次安装依赖：
+
+```bash
+npm ci
+```
+
+日常开发也可以使用：
+
+```bash
+npm install
+```
+
+启动开发服务：
+
+```bash
+npm run dev
+```
+
+默认访问地址：
+
+```text
+http://localhost:3000
+```
+
+本地运行前先从 `.env.example` 复制一份 `.env.local`，再填入本机数据库和模型服务密钥。
+
+### 测试与质量检查
+
+常用检查命令：
+
+```bash
+npm run typecheck
+npm run lint
+npm run test
+npm run test:watch
+npm run format:check
+npm run check
+```
+
+专项检查命令：
+
+```bash
+npm run check:markdown-sanitize
+npm run check:chat-context
+npm run check:sse-stream
+```
+
+提交前会通过 Husky 自动执行 `lint-staged`，只对暂存的改动文件运行 ESLint 修复和 Prettier 格式化。提交 PR 前建议本地先运行：
+
+```bash
+npm run check
+```
+
+### 格式化
+
+格式化前端与工程化文件：
+
+```bash
+npm run format
+```
+
+只检查格式化状态：
+
+```bash
+npm run format:check
+```
+
+### 构建
+
+生产构建：
+
+```bash
+npm run build
+```
+
+启动生产服务：
+
+```bash
+npm run start
+```
+
+CI 在 Ubuntu + Node.js 20 环境中执行：
+
+```bash
+npm ci
+npm run check
+```
+
+### 环境变量
+
+`.env.example` 包含本地开发所需变量：
+
+```env
+DATABASE_URL=postgres://username:password@localhost:5432/vchat_db
+
+DEEPSEEK_API_KEY=your_deepseek_api_key
+QWEN_API_KEY=your_qwen_api_key
+DASHSCOPE_API_KEY=your_dashscope_api_key
+
+JWT_ACCESS_SECRET=your_access_secret
+JWT_REFRESH_SECRET=your_refresh_secret
+
+LOG_TO_FILE=false
+LOG_DIR=logs
+```
+
+- `DATABASE_URL`：PostgreSQL 连接地址，项目使用 Drizzle ORM。
+- `DEEPSEEK_API_KEY` / `QWEN_API_KEY`：模型服务密钥，至少配置一个可用模型提供方。
+- `DASHSCOPE_API_KEY`：用于 DashScope Embedding 和长期记忆相关能力。
+- `JWT_ACCESS_SECRET` / `JWT_REFRESH_SECRET`：登录认证 token 签名密钥，本地和生产环境都应使用安全随机值。
+- `LOG_TO_FILE`：本地服务器或 Docker 部署需要文件日志时设为 `true`。
+- `LOG_DIR`：文件日志输出目录，默认可写为 `logs`。
+- 不要提交 `.env.local` 或任何真实密钥。
+
+### 数据库辅助命令
+
+同步数据库 schema：
+
+```bash
+npm run db:push
+```
+
+初始化种子数据：
+
+```bash
+npm run db:seed
+```
+
+打开 Drizzle Studio：
+
+```bash
+npm run db:studio
+```
+
 注意：当前 compose 文件只包含应用服务，PostgreSQL 需要单独部署或补充到 compose 中，并确保 `.env.local` 中的 `DATABASE_URL` 指向可访问的数据库。
 
 ## 注意事项

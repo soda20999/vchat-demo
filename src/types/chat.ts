@@ -12,6 +12,11 @@ export interface Conversation {
   updatedAt: Date;
 }
 
+export type ConversationDto = Omit<Conversation, 'createdAt' | 'updatedAt'> & {
+  createdAt: string;
+  updatedAt: string;
+};
+
 export interface CreateConversationPayload {
   title: string;
   selectedModel: string;

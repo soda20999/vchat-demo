@@ -14,8 +14,7 @@ export function useChatScroll(dataSource: unknown[], options?: UseChatScrollOpti
     if (!container) return;
 
     shouldStickToBottomRef.current =
-      container.scrollHeight - container.scrollTop - container.clientHeight <
-      threshold;
+      container.scrollHeight - container.scrollTop - container.clientHeight < threshold;
   }, [threshold]);
 
   const scrollToBottom = useCallback((behavior: ScrollBehavior = 'smooth') => {

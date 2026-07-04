@@ -5,15 +5,12 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useState } from 'react';
 
 import { ConversationList } from '@/components/Chat/ConversationList';
+import { ConfirmDialog } from '@/components/Ui/ConfirmDialog';
+import { ErrorState } from '@/components/Ui/ErrorState';
 import { SidebarButton } from '@/components/Ui/SidebarButton';
 import { useChatStore } from '@/stores/chatStore';
 
-const NOTEBOOK_ITEMS = ['Linux Command Reference: Clear', '新建笔记本'];
-
-const ACTIONS = [
-  { icon: 'lucide:square-pen', label: '发起新对话', action: 'new-chat' as const },
-  { icon: 'lucide:badge-star', label: '我的内容' },
-];
+const ACTIONS = [{ icon: 'lucide:square-pen', label: '发起新对话', action: 'new-chat' as const }];
 
 function SettingsMenu({
   open,
@@ -46,7 +43,12 @@ function SettingsMenu({
         <span>{loggingOut ? '正在登出...' : '登出账号'}</span>
       </button>
       {errorMessage ? (
-        <p className="px-3 pt-2 text-[12px] leading-5 text-red-400">{errorMessage}</p>
+        <ErrorState
+          compact
+          title="登出失败"
+          description={errorMessage}
+          className="mt-2 !items-start !px-3 !py-3 !text-left"
+        />
       ) : null}
     </div>
   );
@@ -57,6 +59,7 @@ export function Sidebar() {
   const router = useRouter();
   const [expanded, setExpanded] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
   const [logoutError, setLogoutError] = useState('');
   const switchConversation = useChatStore((state) => state.switchConversation);
@@ -88,6 +91,7 @@ export function Sidebar() {
     } catch (error) {
       setLogoutError(error instanceof Error ? error.message : '登出失败，请稍后重试');
       setLoggingOut(false);
+      setLogoutConfirmOpen(false);
     }
   };
 
@@ -107,13 +111,22 @@ export function Sidebar() {
         expanded={expanded}
         loggingOut={loggingOut}
         errorMessage={logoutError}
-        onLogout={() => void handleLogout()}
+        onLogout={() => setLogoutConfirmOpen(true)}
+      />
+      <ConfirmDialog
+        open={logoutConfirmOpen}
+        title="确认退出登录？"
+        description="退出后需要重新登录才能继续使用当前账号。"
+        confirmText="退出"
+        cancelText="取消"
+        variant="danger"
+        loading={loggingOut}
+        onOpenChange={setLogoutConfirmOpen}
+        onConfirm={() => void handleLogout()}
       />
 
       <div
-        className={`flex h-full flex-col ${
-          expanded ? 'px-4 py-3' : 'items-center px-0 py-2.5'
-        }`}
+        className={`flex h-full flex-col ${expanded ? 'px-4 py-3' : 'items-center px-0 py-2.5'}`}
       >
         <div className={`flex items-center ${expanded ? 'justify-between' : 'justify-center'}`}>
           <div className="group relative">
@@ -135,69 +148,19 @@ export function Sidebar() {
             ) : null}
           </div>
 
-          {expanded ? (
-            <button
-              type="button"
-              aria-label="搜索"
-              className="flex h-8 w-8 items-center justify-center rounded-full text-[#d4d4d4] transition-colors hover:text-white"
-            >
-              <Icon icon="lucide:search" className="h-4.5 w-4.5" />
-            </button>
-          ) : null}
+          {expanded ? <div className="h-8 w-8" aria-hidden="true" /> : null}
         </div>
 
         {expanded ? (
           <>
             <div className="mt-5 space-y-1">
-              {ACTIONS.map((item) => {
-                if (item.action === 'new-chat') {
-                  return (
-                    <SidebarButton
-                      key={item.label}
-                      icon={<Icon icon={item.icon} className="h-4.5 w-4.5 text-[#d4d4d4]" />}
-                      onClick={() => void handleNewConversation()}
-                      textClassName="font-semibold text-[#d6d6d6]"
-                    >
-                      {item.label}
-                    </SidebarButton>
-                  );
-                }
-
-                return (
-                  <SidebarButton
-                    key={item.label}
-                    icon={<Icon icon={item.icon} className="h-4.5 w-4.5 text-[#d4d4d4]" />}
-                    textClassName="font-semibold text-[#d6d6d6]"
-                  >
-                    {item.label}
-                  </SidebarButton>
-                );
-              })}
-            </div>
-
-            <div className="mt-5">
               <SidebarButton
-                suffix={<Icon icon="lucide:chevron-right" className="h-3.5 w-3.5 text-[#acacac]" />}
-                className="py-1.5"
-                textClassName="font-semibold text-[#ececec]"
+                icon={<Icon icon={ACTIONS[0].icon} className="h-4.5 w-4.5 text-[#d4d4d4]" />}
+                onClick={() => void handleNewConversation()}
+                textClassName="font-semibold text-[#d6d6d6]"
               >
-                笔记本
+                {ACTIONS[0].label}
               </SidebarButton>
-
-              <div className="mt-2 space-y-0.5">
-                <SidebarButton
-                  icon={<Icon icon="lucide:notebook-text" className="h-4.5 w-4.5 text-[#d4d4d4]" />}
-                  textClassName="font-medium"
-                >
-                  {NOTEBOOK_ITEMS[0]}
-                </SidebarButton>
-                <SidebarButton
-                  icon={<Icon icon="lucide:plus" className="h-4.5 w-4.5 text-[#d4d4d4]" />}
-                  textClassName="font-medium"
-                >
-                  {NOTEBOOK_ITEMS[1]}
-                </SidebarButton>
-              </div>
             </div>
 
             <div className="mt-5 flex min-h-0 flex-1 flex-col">
@@ -231,7 +194,6 @@ export function Sidebar() {
                 }`}
               >
                 <Icon icon="lucide:settings" className="h-4.5 w-4.5" />
-                <span className="absolute -right-1 top-0 h-2.5 w-2.5 rounded-full bg-[#8fb2ff]" />
               </button>
             </div>
           </div>
@@ -251,7 +213,6 @@ export function Sidebar() {
               }`}
             >
               <Icon icon="lucide:settings" className="h-4.5 w-4.5" />
-              <span className="absolute right-1 top-1 h-2.5 w-2.5 rounded-full bg-[#8fb2ff]" />
             </button>
           </div>
         ) : null}

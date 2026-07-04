@@ -2,11 +2,20 @@
   "name": "vchat",
   "version": "0.1.0",
   "private": true,
+  "engines": {
+    "node": ">=20 <21",
+    "npm": ">=10 <11"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
+    "prepare": "husky",
+    "format": "prettier --write \"src/app/**/{page,layout}.tsx\" \"src/app/globals.css\" \"src/components/**/*.{ts,tsx}\" \"src/hooks/**/*.{ts,tsx}\" \"src/stores/**/*.{ts,tsx}\" \"src/stories/**/*.{ts,tsx}\" \"src/tests/**/*.{ts,tsx}\" \"src/types/**/*.{ts,tsx}\" \".storybook/**/*.{ts,tsx}\" \"package.json\" \".prettierrc.json\" \".github/**/*.{yml,yaml}\"",
+    "format:check": "prettier --check \"src/app/**/{page,layout}.tsx\" \"src/app/globals.css\" \"src/components/**/*.{ts,tsx}\" \"src/hooks/**/*.{ts,tsx}\" \"src/stores/**/*.{ts,tsx}\" \"src/stories/**/*.{ts,tsx}\" \"src/tests/**/*.{ts,tsx}\" \"src/types/**/*.{ts,tsx}\" \".storybook/**/*.{ts,tsx}\" \"package.json\" \".prettierrc.json\" \".github/**/*.{yml,yaml}\"",
     "lint": "eslint",
+    "storybook": "storybook dev -p 6006 --disable-telemetry",
+    "build-storybook": "storybook build --disable-telemetry",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -40,8 +49,17 @@
     "zod-to-json-schema": "^3.25.2",
     "zustand": "^5.0.12"
   },
+  "lint-staged": {
+    "*.{js,jsx,ts,tsx}": [
+      "eslint --fix",
+      "prettier --write"
+    ],
+    "*.{json,md,css,scss,yml,yaml}": "prettier --write"
+  },
   "devDependencies": {
     "@iconify/react": "^6.0.2",
+    "@storybook/addon-docs": "^10.4.6",
+    "@storybook/nextjs-vite": "^10.4.6",
     "@tailwindcss/postcss": "^4",
     "@testing-library/dom": "^10.4.1",
     "@testing-library/react": "^16.3.2",
@@ -55,7 +73,11 @@
     "drizzle-kit": "^0.31.10",
     "eslint": "^9",
     "eslint-config-next": "16.2.4",
+    "husky": "^9.1.7",
     "jsdom": "^29.1.1",
+    "lint-staged": "^15.5.2",
+    "prettier": "^3.9.4",
+    "storybook": "^10.4.6",
     "tailwindcss": "^4",
     "tsx": "^4.22.3",
     "typescript": "^5",

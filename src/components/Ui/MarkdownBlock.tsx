@@ -28,10 +28,7 @@ applyMarkdownTableStyles(markdownParser);
 markdownParser.renderer.rules.hr = () => '';
 
 // 函数名：MarkdownBlock；简单介绍：解析 Markdown 内容并输出带样式的富文本；参数变量名：content、status。
-export const MarkdownBlock: React.FC<MarkdownBlockProps> = React.memo(({
-  content,
-  status,
-}) => {
+export const MarkdownBlock: React.FC<MarkdownBlockProps> = React.memo(({ content, status }) => {
   const renderedHtml = useMemo(() => {
     if (!content) return '';
 

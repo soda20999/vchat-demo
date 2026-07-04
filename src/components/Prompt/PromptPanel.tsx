@@ -61,14 +61,21 @@ export function PromptPanel({ openMenu, setOpenMenu }: PromptPanelProps) {
       >
         <PillMenuTitle>{TEXT.mode}</PillMenuTitle>
         {LIFE_PROMPT_TEMPLATES.map((template) => (
-          <PillMenuItem key={template.id} active={templateId === template.id} onClick={() => applyTemplate(template.id)}>
+          <PillMenuItem
+            key={template.id}
+            active={templateId === template.id}
+            onClick={() => applyTemplate(template.id)}
+          >
             {TEMPLATE_LABELS[template.id] ?? template.name}
           </PillMenuItem>
         ))}
 
         <PillMenuTitle>{TEXT.style}</PillMenuTitle>
         {STYLE_OPTIONS.map((option) => (
-          <PillMenuItem key={option.label} onClick={() => updateSettings({ temperature: option.temperature, topP: option.topP })}>
+          <PillMenuItem
+            key={option.label}
+            onClick={() => updateSettings({ temperature: option.temperature, topP: option.topP })}
+          >
             {option.label}
           </PillMenuItem>
         ))}
@@ -82,7 +89,10 @@ export function PromptPanel({ openMenu, setOpenMenu }: PromptPanelProps) {
       >
         <PillMenuTitle>{TEXT.length}</PillMenuTitle>
         {LENGTH_OPTIONS.map((option) => (
-          <PillMenuItem key={option.label} onClick={() => updateSettings({ maxTokens: option.maxTokens })}>
+          <PillMenuItem
+            key={option.label}
+            onClick={() => updateSettings({ maxTokens: option.maxTokens })}
+          >
             {option.label}
           </PillMenuItem>
         ))}

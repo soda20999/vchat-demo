@@ -20,19 +20,17 @@ type ConversationItemProps = {
  * 函数名：ConversationItem
  * 简单介绍：展示单个会话条目，并根据 active 显示选中样式。
  */
-const ConversationItem = React.memo(
-  ({ active, title, onClick }: ConversationItemProps) => (
-    <SidebarButton
-      onClick={onClick}
-      active={active}
-      suffix={<Icon icon="lucide:pin" className="h-3.5 w-3.5 text-[#bdbdbd]" />}
-      className="px-2.5"
-      textClassName="font-medium"
-    >
-      {title}
-    </SidebarButton>
-  )
-);
+const ConversationItem = React.memo(({ active, title, onClick }: ConversationItemProps) => (
+  <SidebarButton
+    onClick={onClick}
+    active={active}
+    suffix={<Icon icon="lucide:pin" className="h-3.5 w-3.5 text-[#bdbdbd]" />}
+    className="px-2.5"
+    textClassName="font-medium"
+  >
+    {title}
+  </SidebarButton>
+));
 
 ConversationItem.displayName = 'ConversationItem';
 
