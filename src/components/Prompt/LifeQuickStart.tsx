@@ -30,9 +30,7 @@ const QUICK_ACTIONS = [
 // 函数名：LifeQuickStart；简单介绍：展示预设快捷问题，点击后应用模板并发送首条消息。
 export function LifeQuickStart() {
   const sendMessage = useChatStore((state) => state.sendMessage);
-  const updatePromptSettings = useChatStore(
-    (state) => state.updatePromptSettings
-  );
+  const updatePromptSettings = useChatStore((state) => state.updatePromptSettings);
 
   // startChat：按模板 ID 设置聊天参数，并发送对应的快捷内容。
   const startChat = async (templateId: string, content: string) => {

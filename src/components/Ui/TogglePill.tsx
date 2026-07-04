@@ -25,9 +25,7 @@ export function TogglePill({ active = false, icon, label, onClick }: TogglePillP
       type="button"
       onClick={onClick}
       className={`flex items-center gap-1 rounded-full px-2.5 py-1 text-xs transition ${
-        active
-          ? 'bg-green-500/15 text-green-300'
-          : 'bg-white/5 text-gray-400 hover:text-white'
+        active ? 'bg-green-500/15 text-green-300' : 'bg-white/5 text-gray-400 hover:text-white'
       }`}
     >
       {icon ? <Icon icon={icon} className="h-3.5 w-3.5" /> : null}

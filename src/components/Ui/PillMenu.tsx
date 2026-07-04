@@ -63,7 +63,11 @@ export const PillMenu = React.memo(function PillMenu({
 });
 
 // 函数名：PillMenuTitle；简单介绍：渲染菜单分组标题；参数变量名：children。
-export const PillMenuTitle = React.memo(function PillMenuTitle({ children }: { children: ReactNode }) {
+export const PillMenuTitle = React.memo(function PillMenuTitle({
+  children,
+}: {
+  children: ReactNode;
+}) {
   return <div className="px-2 pb-2 text-sm font-semibold text-gray-100">{children}</div>;
 });
 

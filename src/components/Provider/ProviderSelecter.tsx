@@ -18,10 +18,7 @@ interface ProviderGroupProps {
  * 简单介绍：渲染一个供应商分组和该供应商下的所有模型选项。
  * 参数变量名：provider、showSeparator。
  */
-const ProviderGroup: React.FC<ProviderGroupProps> = React.memo(({
-  provider,
-  showSeparator,
-}) => {
+const ProviderGroup: React.FC<ProviderGroupProps> = React.memo(({ provider, showSeparator }) => {
   return (
     <div>
       <Select.Group>
@@ -64,41 +61,39 @@ interface ProviderSelectProps {
  * 简单介绍：提供模型选择下拉框，并按供应商进行分组展示。
  * 参数变量名：providers、value、onChange。
  */
-export const ProviderSelect: React.FC<ProviderSelectProps> = React.memo(({
-  providers,
-  value,
-  onChange,
-}) => {
-  return (
-    <div className="w-full">
-      <Select.Root value={value} onValueChange={onChange}>
-        <Select.Trigger className="flex w-full items-center justify-between rounded-md border px-3 py-2 outline-none shadow-sm data-[placeholder]:text-gray-400">
-          <Select.Value placeholder="选择模型" />
-          <Select.Icon>
-            <Icon icon="radix-icons:chevron-down" className="h-5 w-5" />
-          </Select.Icon>
-        </Select.Trigger>
+export const ProviderSelect: React.FC<ProviderSelectProps> = React.memo(
+  ({ providers, value, onChange }) => {
+    return (
+      <div className="w-full">
+        <Select.Root value={value} onValueChange={onChange}>
+          <Select.Trigger className="flex w-full items-center justify-between rounded-md border px-3 py-2 outline-none shadow-sm data-[placeholder]:text-gray-400">
+            <Select.Value placeholder="选择模型" />
+            <Select.Icon>
+              <Icon icon="radix-icons:chevron-down" className="h-5 w-5" />
+            </Select.Icon>
+          </Select.Trigger>
 
-        <Select.Portal>
-          <Select.Content
-            position="popper"
-            sideOffset={8}
-            className="z-[100] min-w-[var(--radix-select-trigger-width)] rounded-md border bg-white shadow-md"
-          >
-            <Select.Viewport className="p-2">
-              {providers.map((provider, index) => (
-                <ProviderGroup
-                  key={provider.id}
-                  provider={provider}
-                  showSeparator={index !== providers.length - 1}
-                />
-              ))}
-            </Select.Viewport>
-          </Select.Content>
-        </Select.Portal>
-      </Select.Root>
-    </div>
-  );
-});
+          <Select.Portal>
+            <Select.Content
+              position="popper"
+              sideOffset={8}
+              className="z-[100] min-w-[var(--radix-select-trigger-width)] rounded-md border bg-white shadow-md"
+            >
+              <Select.Viewport className="p-2">
+                {providers.map((provider, index) => (
+                  <ProviderGroup
+                    key={provider.id}
+                    provider={provider}
+                    showSeparator={index !== providers.length - 1}
+                  />
+                ))}
+              </Select.Viewport>
+            </Select.Content>
+          </Select.Portal>
+        </Select.Root>
+      </div>
+    );
+  },
+);
 
 ProviderSelect.displayName = 'ProviderSelect';

@@ -14,9 +14,7 @@ interface ImageUploadTriggerProps {
  * 隐藏的文件输入，通过按钮触发
  */
 // 函数名：ImageUploadTrigger；简单介绍：触发本地图片选择，并把选中的 File 传给父组件；参数变量名：onSelect。
-export const ImageUploadTrigger: React.FC<ImageUploadTriggerProps> = ({
-  onSelect,
-}) => {
+export const ImageUploadTrigger: React.FC<ImageUploadTriggerProps> = ({ onSelect }) => {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   // triggerFileInput：主动点击隐藏的 input[type=file]。
@@ -39,13 +37,7 @@ export const ImageUploadTrigger: React.FC<ImageUploadTriggerProps> = ({
 
   return (
     <div className="inline-flex">
-      <input
-        ref={fileInputRef}
-        type="file"
-        hidden
-        accept="image/*"
-        onChange={handleFileChange}
-      />
+      <input ref={fileInputRef} type="file" hidden accept="image/*" onChange={handleFileChange} />
 
       <button
         onClick={triggerFileInput}

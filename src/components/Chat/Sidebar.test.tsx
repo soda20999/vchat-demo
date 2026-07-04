@@ -32,7 +32,7 @@ describe('Sidebar settings menu', () => {
       vi.fn().mockResolvedValue({
         ok: true,
         json: async () => ({ code: 200, data: { ok: true } }),
-      })
+      }),
     );
   });
 
@@ -44,11 +44,12 @@ describe('Sidebar settings menu', () => {
     expect(screen.getByRole('button', { name: '登出账号' })).toBeTruthy();
   });
 
-  it('logs out from the settings panel and redirects to auth page', async () => {
+  it('logs out after confirmation and redirects to auth page', async () => {
     render(<Sidebar />);
 
     fireEvent.click(screen.getByRole('button', { name: '设置' }));
     fireEvent.click(screen.getByRole('button', { name: '登出账号' }));
+    fireEvent.click(screen.getByRole('button', { name: '退出' }));
 
     await waitFor(() => {
       expect(fetch).toHaveBeenCalledWith('/api/auth/logout', {
@@ -58,5 +59,15 @@ describe('Sidebar settings menu', () => {
     });
     expect(refresh).toHaveBeenCalled();
     expect(replace).toHaveBeenCalledWith('/auth');
+  });
+
+  it('does not log out when the confirm dialog is cancelled', () => {
+    render(<Sidebar />);
+
+    fireEvent.click(screen.getByRole('button', { name: '设置' }));
+    fireEvent.click(screen.getByRole('button', { name: '登出账号' }));
+    fireEvent.click(screen.getByRole('button', { name: '取消' }));
+
+    expect(fetch).not.toHaveBeenCalled();
   });
 });

@@ -4,7 +4,13 @@ import { produce } from 'immer';
 import { LOCAL_PROVIDERS } from '@/config/providers';
 import { consumeChatStream } from '@/lib/chat-stream-client';
 import type { ChatStreamEvent } from '@/lib/sse-stream';
-import type { Conversation, Message, Provider } from '@/types';
+import type {
+  ApiResponseEnvelope,
+  Conversation,
+  Message,
+  Provider,
+  SendMessagePayload,
+} from '@/types';
 
 /**
  * ==========================================
@@ -21,13 +27,8 @@ let historyRequestId = 0;
 // 【流式请求控制器】当前正在生成回答的请求控制器（AbortController 实例），用于点击 Stop 按钮时中断正在进行的 fetch 流。
 let activeAbortController: AbortController | null = null;
 
-function getValidSelectedModel(
-  selectedModel: string,
-  providers: Provider[]
-) {
-  const hasModel = providers.some((provider) =>
-    provider.models?.includes(selectedModel)
-  );
+function getValidSelectedModel(selectedModel: string, providers: Provider[]) {
+  const hasModel = providers.some((provider) => provider.models?.includes(selectedModel));
 
   return hasModel ? selectedModel : providers[0]?.models?.[0] || '';
 }
@@ -37,11 +38,6 @@ function getValidSelectedModel(
  * 类型定义 (Type Definitions)
  * ==========================================
  */
-interface ApiEnvelope<T> {
-  code?: number;
-  data: T;
-}
-
 interface ChatState {
   conversations: Conversation[];
   providers: Provider[];
@@ -68,19 +64,11 @@ interface ChatState {
   stopGeneration: () => void;
   retryAnswer: (answerId: number) => Promise<void>;
   addOptimisticConversation: (tempId: number, title: string) => void;
-  resolveOptimisticConversation: (
-    tempId: number,
-    realId: number,
-    title?: string
-  ) => void;
+  resolveOptimisticConversation: (tempId: number, realId: number, title?: string) => void;
   switchConversation: (id: number) => Promise<void>;
   updateSelectedModel: (model: string) => void;
-  updateContextOptions: (
-    options: Partial<ChatState['contextOptions']>
-  ) => void;
-  updatePromptSettings: (
-    settings: Partial<ChatState['promptSettings']>
-  ) => void;
+  updateContextOptions: (options: Partial<ChatState['contextOptions']>) => void;
+  updatePromptSettings: (settings: Partial<ChatState['promptSettings']>) => void;
   appendMessageChunk: (messageId: number, text: string) => void;
   updateMessageStatus: (messageId: number, status: Message['status']) => void;
   updateMessageError: (messageId: number, message: string) => void;
@@ -130,15 +118,13 @@ function hydrateMessage(message: Message): Message {
  */
 async function fetchApi<T>(input: string, init?: RequestInit): Promise<T> {
   const response = await fetch(input, init);
-  const payload = (await response.json()) as ApiEnvelope<T> & {
-    message?: string;
-  };
+  const payload = (await response.json()) as ApiResponseEnvelope<T>;
 
   if (!response.ok || (payload.code !== undefined && payload.code !== 200)) {
     throw new Error(payload.message || 'Request failed');
   }
 
-  return payload.data;
+  return payload.data as T;
 }
 
 /**
@@ -150,26 +136,28 @@ export const useChatStore = create<ChatState>((set, get) => ({
   /**
    * 基础状态定义 (Initial States)
    */
-  conversations: [],            // 会话列表数组
-  providers: [],                // AI 模型供应商列表
-  messages: [],                 // 当前会话的消息列表
-  currentConversationId: null,  // 当前激活的会话 ID
-  currentUserId: null,          // 当前登录的用户 ID
-  selectedModel: '',            // 当前选中的 AI 模型名称
-  contextOptions: {             // 聊天上下文策略开关配置
-    memoryEnabled: true,        // 是否启用长期记忆
-    summaryEnabled: true,       // 是否启用摘要
-    relevantHistoryEnabled: true,// 是否拉取相关历史
-    recentTurns: 8,             // 默认携带的最近对话轮数
+  conversations: [], // 会话列表数组
+  providers: [], // AI 模型供应商列表
+  messages: [], // 当前会话的消息列表
+  currentConversationId: null, // 当前激活的会话 ID
+  currentUserId: null, // 当前登录的用户 ID
+  selectedModel: '', // 当前选中的 AI 模型名称
+  contextOptions: {
+    // 聊天上下文策略开关配置
+    memoryEnabled: true, // 是否启用长期记忆
+    summaryEnabled: true, // 是否启用摘要
+    relevantHistoryEnabled: true, // 是否拉取相关历史
+    recentTurns: 8, // 默认携带的最近对话轮数
   },
-  promptSettings: {             // Prompt 模型参数设置
-    templateId: '',             // 场景提示词模板 ID
-    systemPrompt: '',           // 系统全局提示词 (System Prompt)
-    temperature: 0.7,           // 多样性/随机性参数
-    topP: 0.9,                  // 核采样参数
-    maxTokens: 1200,            // 单次最大生成 Token 数
+  promptSettings: {
+    // Prompt 模型参数设置
+    templateId: '', // 场景提示词模板 ID
+    systemPrompt: '', // 系统全局提示词 (System Prompt)
+    temperature: 0.7, // 多样性/随机性参数
+    topP: 0.9, // 核采样参数
+    maxTokens: 1200, // 单次最大生成 Token 数
   },
-  isInitialized: false,         // 全局应用数据是否初始化完成
+  isInitialized: false, // 全局应用数据是否初始化完成
 
   /**
    * 函数名翻译：初始化状态
@@ -187,12 +175,11 @@ export const useChatStore = create<ChatState>((set, get) => ({
           fetchApi<Provider[]>('/api/providers').catch(() => []),
         ]);
 
-        const providers =
-          providerData.length > 0 ? providerData : LOCAL_PROVIDERS;
+        const providers = providerData.length > 0 ? providerData : LOCAL_PROVIDERS;
         const conversations = conversationData.map(hydrateConversation);
         const selectedModel = getValidSelectedModel(
           get().selectedModel || conversations[0]?.selectedModel || '',
-          providers
+          providers,
         );
 
         set({
@@ -211,9 +198,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
             }
             draft.currentUserId = 'authenticated-user';
             draft.isInitialized = true;
-            draft.selectedModel =
-              draft.selectedModel || LOCAL_PROVIDERS[0]?.models?.[0] || '';
-          })
+            draft.selectedModel = draft.selectedModel || LOCAL_PROVIDERS[0]?.models?.[0] || '';
+          }),
         );
       } finally {
         initializePromise = null;
@@ -246,9 +232,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
     if (conversationIdForUi === null) {
       // 新会话先用负数时间戳作为临时 id 做乐观渲染，等服务端返回真实 id 后再替换，避免界面卡顿。
       const tempId = -Date.now();
-      const displayTitle = trimmedContent
-        ? trimmedContent.slice(0, 20)
-        : '[Image]';
+      const displayTitle = trimmedContent ? trimmedContent.slice(0, 20) : '[Image]';
       get().addOptimisticConversation(tempId, displayTitle);
       set({ currentConversationId: tempId });
       conversationIdForUi = tempId;
@@ -277,37 +261,36 @@ export const useChatStore = create<ChatState>((set, get) => ({
     set(
       produce<ChatState>((draft) => {
         draft.messages.push(userMessage, aiPlaceholder);
-      })
+      }),
     );
 
-    const provider = state.providers.find((item) =>
-      item.models?.includes(state.selectedModel)
-    );
+    const provider = state.providers.find((item) => item.models?.includes(state.selectedModel));
     const abortController = new AbortController();
     // 固定本次 AI 回答的消息 id，避免在并发场景下流式 chunk 误追加到后续新消息上。
     let activeAnswerId = aiPlaceholder.id;
     activeAbortController = abortController;
 
     try {
+      const requestPayload: SendMessagePayload = {
+        conversationId:
+          typeof state.currentConversationId === 'number' && state.currentConversationId > 0
+            ? state.currentConversationId
+            : undefined,
+        content: trimmedContent,
+        image,
+        model: state.selectedModel,
+        providerName: provider?.name,
+        contextOptions: state.contextOptions,
+        promptSettings: state.promptSettings,
+      };
+
       const response = await fetch('/api/chat', {
         method: 'POST',
         signal: abortController.signal,
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          conversationId:
-            typeof state.currentConversationId === 'number' &&
-            state.currentConversationId > 0
-              ? state.currentConversationId
-              : undefined,
-          content: trimmedContent,
-          image,
-          model: state.selectedModel,
-          providerName: provider?.name,
-          contextOptions: state.contextOptions,
-          promptSettings: state.promptSettings,
-        }),
+        body: JSON.stringify(requestPayload),
       });
 
       if (!response.ok) {
@@ -329,14 +312,11 @@ export const useChatStore = create<ChatState>((set, get) => ({
       // 内部辅助方法：根据服务端事件类型更新当前 AI 消息：追加文本、完成流或标记错误。
       const handleStreamEvent = (event: ChatStreamEvent) => {
         if (event.type === 'metadata') {
-          if (
-            typeof conversationIdForUi === 'number' &&
-            conversationIdForUi < 0
-          ) {
+          if (typeof conversationIdForUi === 'number' && conversationIdForUi < 0) {
             get().assignNewConversationId(
               conversationIdForUi,
               event.conversationId,
-              event.conversationTitle
+              event.conversationTitle,
             );
             conversationIdForUi = event.conversationId;
           }
@@ -373,8 +353,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       }
 
       console.error('Send message failed:', error);
-      const errorMessage =
-        error instanceof Error ? error.message : 'Chat request failed';
+      const errorMessage = error instanceof Error ? error.message : 'Chat request failed';
       get().updateMessageError(activeAnswerId, errorMessage);
     } finally {
       if (activeAbortController === abortController) {
@@ -412,7 +391,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
     set(
       produce<ChatState>((draft) => {
         draft.messages = draft.messages.filter((message) => message.id !== answerId);
-      })
+      }),
     );
 
     await get().sendMessage({
@@ -445,7 +424,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
     set(
       produce<ChatState>((draft) => {
         draft.conversations.unshift(newConversation);
-      })
+      }),
     );
   },
 
@@ -460,15 +439,13 @@ export const useChatStore = create<ChatState>((set, get) => ({
   resolveOptimisticConversation: (tempId, realId, title) => {
     set(
       produce<ChatState>((draft) => {
-        const conversation = draft.conversations.find(
-          (item) => item.id === tempId
-        );
+        const conversation = draft.conversations.find((item) => item.id === tempId);
         if (!conversation) return;
 
         conversation.id = realId;
         conversation.title = title || conversation.title;
         conversation.updatedAt = new Date();
-      })
+      }),
     );
   },
 
@@ -486,7 +463,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
         produce<ChatState>((draft) => {
           draft.currentConversationId = null;
           draft.messages = [];
-        })
+        }),
       );
       return;
     }
@@ -495,21 +472,16 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
     set(
       produce<ChatState>((draft) => {
-        const currentConversation = conversations.find(
-          (conversation) => conversation.id === id
-        );
+        const currentConversation = conversations.find((conversation) => conversation.id === id);
 
         draft.currentConversationId = id;
         draft.messages = [];
-        draft.selectedModel =
-          currentConversation?.selectedModel || draft.selectedModel;
-      })
+        draft.selectedModel = currentConversation?.selectedModel || draft.selectedModel;
+      }),
     );
 
     try {
-      const history = await fetchApi<Message[]>(
-        `/api/conversations/${id}/messages`
-      );
+      const history = await fetchApi<Message[]>(`/api/conversations/${id}/messages`);
 
       // 如果在此期间用户又快速点击了别的会话，历史请求 ID 就会不匹配，此时直接丢弃返回的结果，防止乱序覆盖。
       if (requestId !== historyRequestId) return;
@@ -541,7 +513,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
     set(
       produce<ChatState>((draft) => {
         draft.contextOptions = { ...draft.contextOptions, ...options };
-      })
+      }),
     );
   },
 
@@ -555,7 +527,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
     set(
       produce<ChatState>((draft) => {
         draft.promptSettings = { ...draft.promptSettings, ...settings };
-      })
+      }),
     );
   },
 
@@ -574,7 +546,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
         message.content += text;
         message.status = 'streaming';
-      })
+      }),
     );
   },
 
@@ -592,7 +564,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
         if (message) {
           message.status = status;
         }
-      })
+      }),
     );
   },
 
@@ -613,7 +585,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
         message.content = message.content
           ? `${message.content}\n\n[Error] ${errorMessage}`
           : `[Error] ${errorMessage}`;
-      })
+      }),
     );
   },
 
@@ -626,7 +598,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
         if (message) {
           message.id = newId;
         }
-      })
+      }),
     );
   },
 
@@ -652,10 +624,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
             message.conversationId = newId;
           }
         });
-      })
+      }),
     );
 
     get().resolveOptimisticConversation(oldId, newId, title);
   },
-
 }));

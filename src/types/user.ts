@@ -69,15 +69,7 @@ export type UserErrorType =
   | 'INVALID_TOKEN'
   | 'TOKEN_EXPIRED';
 
-/**
- * API 响应数据格式
- */
-export interface ApiResponse<T> {
-  code: number;
-  message: string;
-  data?: T;
-  error?: UserErrorType;
-}
+export type { ApiResponse } from './api';
 
 /**
  * 向后兼容的类型别名

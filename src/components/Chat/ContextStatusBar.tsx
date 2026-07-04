@@ -15,14 +15,12 @@ interface ContextStatusBarProps {
 export function ContextStatusBar({ openMenu, setOpenMenu }: ContextStatusBarProps) {
   const selectedModel = useChatStore((state) => state.selectedModel);
   const conversationSummary = useChatStore(
-    (state) =>
-      state.conversations.find((item) => item.id === state.currentConversationId)
-        ?.summary
+    (state) => state.conversations.find((item) => item.id === state.currentConversationId)?.summary,
   );
   const memoryEnabled = useChatStore((state) => state.contextOptions.memoryEnabled);
   const summaryEnabled = useChatStore((state) => state.contextOptions.summaryEnabled);
   const relevantHistoryEnabled = useChatStore(
-    (state) => state.contextOptions.relevantHistoryEnabled
+    (state) => state.contextOptions.relevantHistoryEnabled,
   );
   const recentTurnsOption = useChatStore((state) => state.contextOptions.recentTurns);
   const updateOptions = useChatStore((state) => state.updateContextOptions);
@@ -41,13 +39,22 @@ export function ContextStatusBar({ openMenu, setOpenMenu }: ContextStatusBarProp
       onOpenChange={(next) => setOpenMenu(next ? 'memory' : null)}
     >
       <PillMenuTitle>记忆设置</PillMenuTitle>
-      <PillMenuItem active={memoryEnabled} onClick={() => updateOptions({ memoryEnabled: !memoryEnabled })}>
+      <PillMenuItem
+        active={memoryEnabled}
+        onClick={() => updateOptions({ memoryEnabled: !memoryEnabled })}
+      >
         记住聊天
       </PillMenuItem>
-      <PillMenuItem active={summaryEnabled} onClick={() => updateOptions({ summaryEnabled: !summaryEnabled })}>
+      <PillMenuItem
+        active={summaryEnabled}
+        onClick={() => updateOptions({ summaryEnabled: !summaryEnabled })}
+      >
         {conversationSummary ? '使用会话摘要' : '等待生成摘要'}
       </PillMenuItem>
-      <PillMenuItem active={relevantHistoryEnabled} onClick={() => updateOptions({ relevantHistoryEnabled: !relevantHistoryEnabled })}>
+      <PillMenuItem
+        active={relevantHistoryEnabled}
+        onClick={() => updateOptions({ relevantHistoryEnabled: !relevantHistoryEnabled })}
+      >
         回想相关历史
       </PillMenuItem>
       <PillMenuItem onClick={() => updateOptions({ recentTurns: nextTurns })}>

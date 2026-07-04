@@ -1,21 +1,15 @@
+import type { ApiResponseEnvelope } from '@/types/api';
+
 /**
  * API 响应标准化工具
  */
 
-export interface ApiResponse<T = unknown> {
-  code: number;
-  message: string;
-  data?: T;
-  timestamp: number;
-}
+export type ApiResponse<T = unknown> = ApiResponseEnvelope<T>;
 
 /**
  * 成功响应
  */
-export function successResponse<T>(
-  data: T,
-  message: string = 'Success'
-): ApiResponse<T> {
+export function successResponse<T>(data: T, message: string = 'Success'): ApiResponse<T> {
   return {
     code: 200,
     message,
@@ -27,10 +21,7 @@ export function successResponse<T>(
 /**
  * 错误响应
  */
-export function errorResponse(
-  code: number = 400,
-  message: string = 'Error'
-): ApiResponse {
+export function errorResponse(code: number = 400, message: string = 'Error'): ApiResponse {
   return {
     code,
     message,
@@ -41,10 +32,7 @@ export function errorResponse(
 /**
  * 创建资源成功（201）
  */
-export function createdResponse<T>(
-  data: T,
-  message: string = 'Created'
-): ApiResponse<T> {
+export function createdResponse<T>(data: T, message: string = 'Created'): ApiResponse<T> {
   return {
     code: 201,
     message,

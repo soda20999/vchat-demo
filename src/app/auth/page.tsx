@@ -4,6 +4,7 @@ import { Icon } from '@iconify/react';
 import { useRouter } from 'next/navigation';
 import type { FormEvent } from 'react';
 import { useMemo, useState } from 'react';
+import type { ApiResponseEnvelope } from '@/types';
 
 type Mode = 'login' | 'register';
 type NoticeKind = 'error' | 'success';
@@ -11,11 +12,6 @@ type NoticeKind = 'error' | 'success';
 type Notice = {
   kind: NoticeKind;
   text: string;
-};
-
-type ApiResponse = {
-  code?: number;
-  message?: string;
 };
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -61,12 +57,12 @@ const MODE_COPY = {
   }
 >;
 
-async function readApiResponse(response: Response): Promise<ApiResponse> {
+async function readApiResponse(response: Response): Promise<ApiResponseEnvelope> {
   const text = await response.text();
   if (!text) return {};
 
   try {
-    return JSON.parse(text) as ApiResponse;
+    return JSON.parse(text) as ApiResponseEnvelope;
   } catch {
     return { message: text };
   }
@@ -83,8 +79,8 @@ export default function AuthPage() {
 
   const copy = MODE_COPY[mode];
   const passwordHint = useMemo(
-    () => mode === 'register' ? TEXT.passwordRegisterHint : TEXT.passwordLoginHint,
-    [mode]
+    () => (mode === 'register' ? TEXT.passwordRegisterHint : TEXT.passwordLoginHint),
+    [mode],
   );
 
   const switchMode = (nextMode: Mode) => {
@@ -124,18 +120,16 @@ export default function AuthPage() {
     setNotice(null);
 
     try {
-      const payload = mode === 'login'
-        ? { email: email.trim(), password }
-        : { username: username.trim(), email: email.trim(), password };
+      const payload =
+        mode === 'login'
+          ? { email: email.trim(), password }
+          : { username: username.trim(), email: email.trim(), password };
 
-      const response = await fetch(
-        mode === 'login' ? '/api/auth/login' : '/api/auth/register',
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
-        }
-      );
+      const response = await fetch(mode === 'login' ? '/api/auth/login' : '/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
 
       const result = await readApiResponse(response);
       if (!response.ok || (result.code !== undefined && result.code !== 200)) {
@@ -239,11 +233,17 @@ export default function AuthPage() {
 
               <p className="min-h-[46px] text-center text-sm leading-[22px] text-[#8d94a1]">
                 {TEXT.agreement}
-                <button type="button" className="mx-1 font-medium text-[#d5d8df] underline underline-offset-4">
+                <button
+                  type="button"
+                  className="mx-1 font-medium text-[#d5d8df] underline underline-offset-4"
+                >
                   {TEXT.userAgreement}
                 </button>
                 {TEXT.and}
-                <button type="button" className="mx-1 font-medium text-[#d5d8df] underline underline-offset-4">
+                <button
+                  type="button"
+                  className="mx-1 font-medium text-[#d5d8df] underline underline-offset-4"
+                >
                   {TEXT.privacyPolicy}
                 </button>
                 {mode === 'login' ? (
@@ -259,9 +259,7 @@ export default function AuthPage() {
                 disabled={loading}
                 className="flex h-[56px] w-full items-center justify-center gap-2 rounded-full bg-[#5b86ff] px-4 text-[16px] font-semibold text-white transition hover:bg-[#6b92ff] disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {loading ? (
-                  <Icon icon="lucide:loader-2" className="h-4 w-4 animate-spin" />
-                ) : null}
+                {loading ? <Icon icon="lucide:loader-2" className="h-4 w-4 animate-spin" /> : null}
                 {loading ? copy.loading : copy.submit}
               </button>
             </form>

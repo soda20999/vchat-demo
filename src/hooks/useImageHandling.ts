@@ -19,16 +19,19 @@ export function useImageHandling(): UseImageHandlingReturn {
   /**
    * 处理图片选择并生成预览 URL
    */
-  const handleImageSelect = useCallback((file: File) => {
-    // 清理旧的 URL
-    if (previewUrl) {
-      URL.revokeObjectURL(previewUrl);
-    }
+  const handleImageSelect = useCallback(
+    (file: File) => {
+      // 清理旧的 URL
+      if (previewUrl) {
+        URL.revokeObjectURL(previewUrl);
+      }
 
-    // 设置新的文件和预览 URL
-    setSelectedFile(file);
-    setPreviewUrl(URL.createObjectURL(file));
-  }, [previewUrl]);
+      // 设置新的文件和预览 URL
+      setSelectedFile(file);
+      setPreviewUrl(URL.createObjectURL(file));
+    },
+    [previewUrl],
+  );
 
   /**
    * 清除图片并释放内存

@@ -12,10 +12,7 @@ import { useChatStore } from '@/stores/chatStore';
 // 函数名：ConversationPage；简单介绍：根据路由中的 id 加载并展示对应会话；参数变量名：params、conversationId。
 export default function ConversationPage() {
   const params = useParams();
-  const conversationId = useMemo(
-    () => Number.parseInt(params?.id as string, 10),
-    [params?.id]
-  );
+  const conversationId = useMemo(() => Number.parseInt(params?.id as string, 10), [params?.id]);
 
   const conversations = useChatStore((state) => state.conversations);
   const switchConversation = useChatStore((state) => state.switchConversation);
@@ -24,7 +21,7 @@ export default function ConversationPage() {
 
   const currentConversation = useMemo(
     () => conversations.find((c) => c.id === conversationId),
-    [conversationId, conversations]
+    [conversationId, conversations],
   );
 
   const formattedUpdateTime = useMemo(
@@ -33,7 +30,7 @@ export default function ConversationPage() {
         fallback: '',
         withSpaces: true,
       }),
-    [currentConversation?.updatedAt]
+    [currentConversation?.updatedAt],
   );
 
   useEffect(() => {
@@ -45,9 +42,7 @@ export default function ConversationPage() {
   return (
     <div className="h-screen flex flex-col">
       <div className="h-[10%] bg-gray-200 border-b border-gray-300 flex items-center justify-between px-3 flex-shrink-0">
-        <h3 className="text-gray-900 font-semibold">
-          {currentConversation?.title || '未知对话'}
-        </h3>
+        <h3 className="text-gray-900 font-semibold">{currentConversation?.title || '未知对话'}</h3>
         <span className="text-sm text-gray-500">{formattedUpdateTime}</span>
       </div>
 

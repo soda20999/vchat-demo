@@ -13,16 +13,20 @@ export type {
   UpdateUserProfilePayload,
   UpdateUserPasswordPayload,
   UserErrorType,
-  ApiResponse,
 } from './user';
 
-// Message 相关类型
 export type {
-  Message,
-  MessageStatus,
-  MessageProps,
-  CreateMessagePayload,
-} from './message';
+  ApiErrorEnvelope,
+  ApiResponse,
+  ApiResponseEnvelope,
+  ChatContextOptions,
+  ChatPromptSettings,
+  SendMessagePayload,
+} from './api';
+export { sendMessageSchema } from './api';
+
+// Message 相关类型
+export type { Message, MessageStatus, MessageProps, CreateMessagePayload } from './message';
 
 // Conversation 相关类型
 export type {
@@ -34,8 +38,4 @@ export type {
 } from './chat';
 
 // Provider 相关类型
-export type {
-  Provider,
-  ProviderProps,
-  CreateProviderPayload,
-} from './provide';
+export type { Provider, ProviderProps, CreateProviderPayload } from './provide';

@@ -1,7 +1,4 @@
-import {
-  buildChatContext,
-  shouldSummarizeContext,
-} from '@/ai/context/context-builder';
+import { buildChatContext, shouldSummarizeContext } from '@/ai/context/context-builder';
 import { summarizeMessages } from '@/ai/context/summarizer';
 import { getPromptTemplate } from '@/ai/prompt/prompt-templates';
 import { getAIProvider, getAvailableProviders } from '@/ai/provider-factory';
@@ -17,6 +14,7 @@ import {
 } from '@/lib/api-error';
 import { logger } from '@/lib/logger';
 import type { ChatStreamEvent } from '@/lib/sse-stream';
+import { sendMessageSchema } from '@/types/api';
 
 export const runtime = 'nodejs';
 
@@ -26,27 +24,6 @@ const providerModelMap: Record<string, string[]> = {
   qwen: ['qwen-plus', 'qwen-turbo'],
 };
 
-interface ChatRequestBody {
-  conversationId?: number | null;
-  content?: string;
-  image?: string;
-  model?: string;
-  providerName?: string;
-  contextOptions?: {
-    memoryEnabled?: boolean;
-    summaryEnabled?: boolean;
-    relevantHistoryEnabled?: boolean;
-    recentTurns?: number;
-  };
-  promptSettings?: {
-    templateId?: string;
-    systemPrompt?: string;
-    temperature?: number;
-    topP?: number;
-    maxTokens?: number;
-  };
-}
-
 function inferProviderName(model: string) {
   if (model.startsWith('deepseek')) return 'deepseek';
   if (model.startsWith('qwen')) return 'qwen';
@@ -55,9 +32,7 @@ function inferProviderName(model: string) {
 
 function getFallbackModel() {
   const availableProvider = getAvailableProviders()[0];
-  return availableProvider
-    ? providerModelMap[availableProvider]?.[0] || ''
-    : '';
+  return availableProvider ? providerModelMap[availableProvider]?.[0] || '' : '';
 }
 
 function normalizeModel(model: string) {
@@ -76,9 +51,8 @@ function buildConversationTitle(content: string, image?: string) {
 
 function isAbortError(error: unknown) {
   return (
-    error instanceof DOMException && error.name === 'AbortError'
-  ) || (
-    error instanceof Error && error.name === 'AbortError'
+    (error instanceof DOMException && error.name === 'AbortError') ||
+    (error instanceof Error && error.name === 'AbortError')
   );
 }
 
@@ -101,10 +75,15 @@ export async function POST(request: Request) {
   };
 
   try {
-    const body = (await request.json()) as ChatRequestBody;
-    const content = body.content?.trim() || '';
+    const parseResult = sendMessageSchema.safeParse(await request.json());
+    if (!parseResult.success) {
+      return streamErrorResponse(parseResult.error.issues[0]?.message || 'Invalid chat request');
+    }
+
+    const body = parseResult.data;
+    const content = body.content;
     const image = body.image;
-    const requestedModel = body.model?.trim() || '';
+    const requestedModel = body.model;
     const model = normalizeModel(requestedModel);
     const providerName = (body.providerName || inferProviderName(model)).trim();
     const userId = getRequestUserId(request);
@@ -123,8 +102,7 @@ export async function POST(request: Request) {
       contentLength: content.length,
       memoryEnabled: body.contextOptions?.memoryEnabled !== false,
       summaryEnabled: body.contextOptions?.summaryEnabled !== false,
-      relevantHistoryEnabled:
-        body.contextOptions?.relevantHistoryEnabled !== false,
+      relevantHistoryEnabled: body.contextOptions?.relevantHistoryEnabled !== false,
       recentTurns: body.contextOptions?.recentTurns,
       templateId: body.promptSettings?.templateId,
       temperature: body.promptSettings?.temperature,
@@ -143,15 +121,10 @@ export async function POST(request: Request) {
     logger.info('Chat request started', logContext);
 
     const provider = getAIProvider(providerName);
-    const cachedProviderId = requestedConversationId
-      ? null
-      : await getProviderId(providerName);
+    const cachedProviderId = requestedConversationId ? null : await getProviderId(providerName);
 
     let conversation = requestedConversationId
-      ? await conversationService.getUserConversation(
-          requestedConversationId,
-          userId
-        )
+      ? await conversationService.getUserConversation(requestedConversationId, userId)
       : undefined;
 
     if (!conversation) {
@@ -159,7 +132,7 @@ export async function POST(request: Request) {
         model,
         cachedProviderId ?? null,
         buildConversationTitle(content, image),
-        userId
+        userId,
       );
     }
     logContext = {
@@ -168,21 +141,17 @@ export async function POST(request: Request) {
       conversationCreated: !requestedConversationId,
     };
 
-    const historyMessages = await messageService.getConversationMessages(
-      conversation.id
-    );
+    const historyMessages = await messageService.getConversationMessages(conversation.id);
     const memories =
       body.contextOptions?.memoryEnabled === false || !content
         ? []
-        : await memoryService.getRelevantMemories(userId, content).catch(
-            (memoryError) => {
-              logger.warn('Load relevant memories failed', {
-                ...logContext,
-                error: memoryError,
-              });
-              return [];
-            }
-          );
+        : await memoryService.getRelevantMemories(userId, content).catch((memoryError) => {
+            logger.warn('Load relevant memories failed', {
+              ...logContext,
+              error: memoryError,
+            });
+            return [];
+          });
     logContext = {
       ...logContext,
       historyCount: historyMessages.length,
@@ -191,8 +160,7 @@ export async function POST(request: Request) {
     const template = body.promptSettings?.templateId
       ? getPromptTemplate(body.promptSettings.templateId)
       : undefined;
-    const systemPrompt =
-      body.promptSettings?.systemPrompt || template?.systemPrompt;
+    const systemPrompt = body.promptSettings?.systemPrompt || template?.systemPrompt;
 
     const chatContext = buildChatContext({
       modelName: model,
@@ -210,13 +178,7 @@ export async function POST(request: Request) {
     });
 
     const [userMessage, aiMessage] = await Promise.all([
-      messageService.createMessage(
-        conversation.id,
-        content,
-        'question',
-        'finished',
-        image
-      ),
+      messageService.createMessage(conversation.id, content, 'question', 'finished', image),
       messageService.createMessage(conversation.id, '', 'answer', 'loading'),
     ]);
 
@@ -228,8 +190,7 @@ export async function POST(request: Request) {
     };
 
     let aiContent = '';
-    const encodeEvent = (event: ChatStreamEvent) =>
-      encodeStreamEvent(event);
+    const encodeEvent = (event: ChatStreamEvent) => encodeStreamEvent(event);
 
     const stream = new ReadableStream<Uint8Array>({
       async start(controller) {
@@ -273,7 +234,7 @@ export async function POST(request: Request) {
             },
             image,
             body.promptSettings,
-            { signal: request.signal }
+            { signal: request.signal },
           );
 
           await Promise.all([
@@ -313,10 +274,7 @@ export async function POST(request: Request) {
               messages: messagesForSummary,
             })
               .then((summary) =>
-                conversationService.updateConversationSummary(
-                  conversation.id,
-                  summary
-                )
+                conversationService.updateConversationSummary(conversation.id, summary),
               )
               .catch((summaryError) => {
                 logger.warn('Summarize conversation failed', {
@@ -381,11 +339,7 @@ export async function POST(request: Request) {
   }
 }
 
-async function markAiMessageError(
-  aiMessageId: number,
-  content: string,
-  conversationId: number
-) {
+async function markAiMessageError(aiMessageId: number, content: string, conversationId: number) {
   await Promise.all([
     messageService.updateMessage(aiMessageId, {
       content,

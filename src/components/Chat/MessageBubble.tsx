@@ -11,10 +11,8 @@ import { useChatStore } from '@/stores/chatStore';
 const MarkdownBlock = dynamic(
   () => import('../Ui/MarkdownBlock').then((mod) => mod.MarkdownBlock),
   {
-    loading: () => (
-      <div className="my-3 h-5 w-32 animate-pulse rounded bg-white/10" />
-    ),
-  }
+    loading: () => <div className="my-3 h-5 w-32 animate-pulse rounded bg-white/10" />,
+  },
 );
 
 interface MessageBubbleProps {
@@ -35,11 +33,7 @@ interface ActionButtonProps {
  * 函数名：ActionButton
  * 简单介绍：根据消息生成状态显示“停止”或“重试”按钮。
  */
-const ActionButton: React.FC<ActionButtonProps> = ({
-  isGenerating,
-  onStop,
-  onRetry,
-}) => {
+const ActionButton: React.FC<ActionButtonProps> = ({ isGenerating, onStop, onRetry }) => {
   const icon = isGenerating ? 'lucide:square' : 'lucide:rotate-cw';
   const label = isGenerating ? 'Stop' : 'Retry';
 
@@ -66,19 +60,16 @@ export const MessageBubble: React.FC<MessageBubbleProps> = React.memo(({ message
   const isGenerating = message.status === 'streaming' || message.status === 'loading';
   const isLoadingOnly = message.status === 'loading' && !message.content;
   const hasAnswerContent = Boolean(message.content) || isGenerating || isError;
-  const formattedTime = useMemo(
-    () => formatRelativeTime(message.createdAt),
-    [message.createdAt]
-  );
+  const formattedTime = useMemo(() => formatRelativeTime(message.createdAt), [message.createdAt]);
   const stopGeneration = useChatStore((state) => state.stopGeneration);
   const retryAnswer = useChatStore((state) => state.retryAnswer);
 
   return (
     <div className={`mb-8 flex w-full ${isQuestion ? 'justify-end' : 'justify-start'}`}>
-      <div className={`flex min-w-0 flex-col ${isQuestion ? 'max-w-[72%] items-end' : 'w-full items-start'}`}>
-        <div className="mb-2 px-1 text-xs text-gray-500">
-          {formattedTime}
-        </div>
+      <div
+        className={`flex min-w-0 flex-col ${isQuestion ? 'max-w-[72%] items-end' : 'w-full items-start'}`}
+      >
+        <div className="mb-2 px-1 text-xs text-gray-500">{formattedTime}</div>
 
         {isQuestion ? (
           <div className="rounded-3xl rounded-tr-md border border-white/10 bg-[#2a2b2f] px-5 py-3 text-[15px] leading-8 text-white shadow-sm">
