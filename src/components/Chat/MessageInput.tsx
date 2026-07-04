@@ -2,12 +2,13 @@
 
 // 文件作用：渲染聊天底部输入框，负责文本输入、图片选择、快捷面板和发送消息。
 import React, { useRef, useState } from 'react';
-import { Icon } from '@iconify/react';
 import { ImagePreview } from '../Attachment/ImagePreview';
 import { ImageUploadTrigger } from '../Attachment/ImageUploadTrigger';
 import { ContextStatusBar } from './ContextStatusBar';
 import { PromptPanel } from '../Prompt/PromptPanel';
 import { useImageHandling } from '@/hooks/useImageHandling';
+import { IconButton } from '@/components/Ui/IconButton';
+import { ChatToolbar } from './ChatToolbar';
 
 interface MessageInputProps {
   // selectedModel：当前选中的模型名称，未选择时禁止发送。
@@ -93,15 +94,13 @@ export const MessageInput: React.FC<MessageInputProps> = React.memo(
 
     return (
       <div className="mx-auto w-full max-w-3xl px-4">
-        <div className="mb-3 flex items-center gap-3">
+        <ChatToolbar className="mb-3" end={<ImageUploadTrigger onSelect={handleImageSelect} />}>
           <PromptPanel openMenu={openMenu} setOpenMenu={setOpenMenu} />
           <ContextStatusBar openMenu={openMenu} setOpenMenu={setOpenMenu} />
-        </div>
+        </ChatToolbar>
         {previewUrl ? <ImagePreview src={previewUrl} onRemove={clearImage} /> : null}
 
         <div className="flex items-end rounded-[28px] border border-gray-200 bg-gray-50 px-4 py-2.5 shadow-sm transition-colors duration-200 focus-within:border-green-700 focus-within:bg-white">
-          <ImageUploadTrigger onSelect={handleImageSelect} />
-
           <textarea
             ref={textareaRef}
             value={inputText}
@@ -116,21 +115,15 @@ export const MessageInput: React.FC<MessageInputProps> = React.memo(
             data-conversation-id={conversationId}
           />
 
-          <button
-            onClick={() => void sendMessage()}
+          <IconButton
+            icon="radix-icons:paper-plane"
+            label="发送消息"
+            loading={isUploading}
             disabled={!canSend}
-            className={`mb-1.5 rounded-full p-2 transition-all duration-200 ${
-              canSend
-                ? 'cursor-pointer bg-green-700 text-white hover:bg-green-800'
-                : 'cursor-default bg-gray-200 text-gray-400'
-            }`}
-          >
-            {isUploading ? (
-              <Icon icon="line-md:loading-loop" className="h-4 w-4" />
-            ) : (
-              <Icon icon="radix-icons:paper-plane" className="h-4 w-4" />
-            )}
-          </button>
+            variant="solid"
+            className="mb-1.5 rounded-full"
+            onClick={() => void sendMessage()}
+          />
         </div>
       </div>
     );

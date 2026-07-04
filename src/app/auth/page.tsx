@@ -4,6 +4,7 @@ import { Icon } from '@iconify/react';
 import { useRouter } from 'next/navigation';
 import type { FormEvent } from 'react';
 import { useMemo, useState } from 'react';
+import { FormField } from '@/components/Ui/FormField';
 import type { ApiResponseEnvelope } from '@/types';
 
 type Mode = 'login' | 'register';
@@ -15,6 +16,8 @@ type Notice = {
 };
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const AUTH_INPUT_CLASS =
+  'h-[60px] w-full rounded-full border border-[#303136] bg-[#191a1c] px-6 text-[16px] text-white outline-none transition placeholder:text-[#737985] focus:border-[#5b86ff] disabled:cursor-not-allowed disabled:opacity-60';
 
 const TEXT = {
   username: '用户名',
@@ -33,11 +36,6 @@ const TEXT = {
   passwordTooShort: '密码至少需要 6 位字符',
   requestFailed: '请求失败，请稍后再试',
   registerSuccess: '注册成功，请使用新账号登录',
-  agreement: '登录注册即代表已阅读并同意我们的',
-  userAgreement: '用户协议',
-  privacyPolicy: '隐私政策',
-  and: '与',
-  registerHint: '没有账号可切换注册',
 };
 
 const MODE_COPY = {
@@ -192,67 +190,41 @@ export default function AuthPage() {
 
             <form className="space-y-7" onSubmit={(event) => void handleSubmit(event)}>
               {mode === 'register' ? (
-                <label className="block">
-                  <span className="sr-only">{TEXT.username}</span>
+                <FormField label={TEXT.username}>
                   <input
                     value={username}
                     onChange={(event) => setUsername(event.target.value)}
                     disabled={loading}
                     autoComplete="username"
-                    className="h-[60px] w-full rounded-full border border-[#303136] bg-[#191a1c] px-6 text-[16px] text-white outline-none transition placeholder:text-[#737985] focus:border-[#5b86ff] disabled:cursor-not-allowed disabled:opacity-60"
+                    className={AUTH_INPUT_CLASS}
                     placeholder={TEXT.usernamePlaceholder}
                   />
-                </label>
+                </FormField>
               ) : null}
 
-              <label className="block">
-                <span className="sr-only">{TEXT.email}</span>
+              <FormField label={TEXT.email}>
                 <input
                   type="email"
                   value={email}
                   onChange={(event) => setEmail(event.target.value)}
                   disabled={loading}
                   autoComplete="email"
-                  className="h-[60px] w-full rounded-full border border-[#303136] bg-[#191a1c] px-6 text-[16px] text-white outline-none transition placeholder:text-[#737985] focus:border-[#5b86ff] disabled:cursor-not-allowed disabled:opacity-60"
+                  className={AUTH_INPUT_CLASS}
                   placeholder={TEXT.emailPlaceholder}
                 />
-              </label>
+              </FormField>
 
-              <label className="block">
-                <span className="sr-only">{TEXT.password}</span>
+              <FormField label={TEXT.password}>
                 <input
                   type="password"
                   value={password}
                   onChange={(event) => setPassword(event.target.value)}
                   disabled={loading}
                   autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
-                  className="h-[60px] w-full rounded-full border border-[#303136] bg-[#191a1c] px-6 text-[16px] text-white outline-none transition placeholder:text-[#737985] focus:border-[#5b86ff] disabled:cursor-not-allowed disabled:opacity-60"
+                  className={AUTH_INPUT_CLASS}
                   placeholder={passwordHint}
                 />
-              </label>
-
-              <p className="min-h-[46px] text-center text-sm leading-[22px] text-[#8d94a1]">
-                {TEXT.agreement}
-                <button
-                  type="button"
-                  className="mx-1 font-medium text-[#d5d8df] underline underline-offset-4"
-                >
-                  {TEXT.userAgreement}
-                </button>
-                {TEXT.and}
-                <button
-                  type="button"
-                  className="mx-1 font-medium text-[#d5d8df] underline underline-offset-4"
-                >
-                  {TEXT.privacyPolicy}
-                </button>
-                {mode === 'login' ? (
-                  <>
-                    <span>，</span>
-                    {TEXT.registerHint}
-                  </>
-                ) : null}
-              </p>
+              </FormField>
 
               <button
                 type="submit"

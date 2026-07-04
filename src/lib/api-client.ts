@@ -1,8 +1,8 @@
 import type {
   ApiErrorEnvelope,
   ApiResponseEnvelope,
-  Conversation,
-  Message,
+  ConversationDto,
+  MessageDto,
   Provider,
   CreateConversationPayload,
   UpdateConversationPayload,
@@ -37,21 +37,21 @@ async function apiRequest<T>(
   return data.data as T;
 }
 
-export async function fetchConversations(userId?: string): Promise<Conversation[]> {
+export async function fetchConversations(userId?: string): Promise<ConversationDto[]> {
   return apiRequest(`/conversations`, undefined, userId);
 }
 
 export async function fetchConversation(
   id: number,
   userId?: string,
-): Promise<{ conversation: Conversation; messages: Message[] }> {
+): Promise<{ conversation: ConversationDto; messages: MessageDto[] }> {
   return apiRequest(`/conversations/${id}`, undefined, userId);
 }
 
 export async function createConversation(
   payload: CreateConversationPayload,
   userId?: string,
-): Promise<Conversation> {
+): Promise<ConversationDto> {
   return apiRequest(
     `/conversations`,
     {
@@ -66,7 +66,7 @@ export async function updateConversation(
   id: number,
   payload: UpdateConversationPayload,
   userId?: string,
-): Promise<Conversation> {
+): Promise<ConversationDto> {
   return apiRequest(
     `/conversations/${id}`,
     {
@@ -90,14 +90,14 @@ export async function deleteConversation(id: number, userId?: string): Promise<v
 export async function fetchConversationMessages(
   conversationId: number,
   userId?: string,
-): Promise<Message[]> {
+): Promise<MessageDto[]> {
   return apiRequest(`/conversations/${conversationId}/messages`, undefined, userId);
 }
 
 export async function createMessage(
   payload: CreateMessagePayload,
   userId?: string,
-): Promise<Message> {
+): Promise<MessageDto> {
   return apiRequest(
     `/messages`,
     {

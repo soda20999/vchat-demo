@@ -6,8 +6,10 @@ const serverOnlyImports = [
   '@/db/**',
   '@/lib/auth/**',
   '@/lib/api-handler',
+  '@/lib/api-error',
   '@/lib/server-response',
   '@/app/api/**',
+  'next/server',
   '../db/**',
   '../../db/**',
   '../../../db/**',
@@ -15,8 +17,11 @@ const serverOnlyImports = [
   '../../lib/auth/**',
   '../../../lib/auth/**',
   '../lib/api-handler',
+  '../lib/api-error',
   '../../lib/api-handler',
+  '../../lib/api-error',
   '../../../lib/api-handler',
+  '../../../lib/api-error',
   '../lib/server-response',
   '../../lib/server-response',
   '../../../lib/server-response',
@@ -39,6 +44,28 @@ const eslintConfig = defineConfig([
               group: serverOnlyImports,
               message:
                 '前端组件和 store 不应直接引用 DB、服务端 auth、Route Handler 或服务端响应封装。请通过前端 API client、共享 schema 或纯类型边界传递数据。',
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    files: ['src/components/Ui/**/*.{ts,tsx}'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: [
+                ...serverOnlyImports,
+                '@/stores/**',
+                '../stores/**',
+                '../../stores/**',
+                '../../../stores/**',
+              ],
+              message: 'Ui 基础组件不得依赖 store 或服务端实现，请通过 props 传入数据和事件。',
             },
           ],
         },

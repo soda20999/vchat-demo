@@ -26,11 +26,18 @@ export type {
 export { sendMessageSchema } from './api';
 
 // Message 相关类型
-export type { Message, MessageStatus, MessageProps, CreateMessagePayload } from './message';
+export type {
+  Message,
+  MessageDto,
+  MessageStatus,
+  MessageProps,
+  CreateMessagePayload,
+} from './message';
 
 // Conversation 相关类型
 export type {
   Conversation,
+  ConversationDto,
   ConversationProps,
   ConversationUIState,
   CreateConversationPayload,

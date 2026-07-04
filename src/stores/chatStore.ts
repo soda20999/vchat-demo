@@ -7,7 +7,9 @@ import type { ChatStreamEvent } from '@/lib/sse-stream';
 import type {
   ApiResponseEnvelope,
   Conversation,
+  ConversationDto,
   Message,
+  MessageDto,
   Provider,
   SendMessagePayload,
 } from '@/types';
@@ -88,7 +90,7 @@ interface ChatState {
  * 参数：
  *   - conversation: 原始会话对象 (Conversation)
  */
-function hydrateConversation(conversation: Conversation): Conversation {
+export function hydrateConversation(conversation: ConversationDto): Conversation {
   return {
     ...conversation,
     createdAt: new Date(conversation.createdAt),
@@ -102,7 +104,7 @@ function hydrateConversation(conversation: Conversation): Conversation {
  * 参数：
  *   - message: 原始消息对象 (Message)
  */
-function hydrateMessage(message: Message): Message {
+export function hydrateMessage(message: MessageDto): Message {
   return {
     ...message,
     createdAt: new Date(message.createdAt),
@@ -171,7 +173,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
     initializePromise = (async () => {
       try {
         const [conversationData, providerData] = await Promise.all([
-          fetchApi<Conversation[]>('/api/conversations'),
+          fetchApi<ConversationDto[]>('/api/conversations'),
           fetchApi<Provider[]>('/api/providers').catch(() => []),
         ]);
 
@@ -481,7 +483,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
     );
 
     try {
-      const history = await fetchApi<Message[]>(`/api/conversations/${id}/messages`);
+      const history = await fetchApi<MessageDto[]>(`/api/conversations/${id}/messages`);
 
       // 如果在此期间用户又快速点击了别的会话，历史请求 ID 就会不匹配，此时直接丢弃返回的结果，防止乱序覆盖。
       if (requestId !== historyRequestId) return;
