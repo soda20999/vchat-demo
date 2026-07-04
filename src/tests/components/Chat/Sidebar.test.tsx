@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { Sidebar } from './Sidebar';
+import { Sidebar } from '@/components/Chat/Sidebar';
 
 const replace = vi.fn();
 const refresh = vi.fn();

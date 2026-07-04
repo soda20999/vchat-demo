@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 
-import { ChatToolbar } from './ChatToolbar';
+import { ChatToolbar } from '@/components/Chat/ChatToolbar';
 
 describe('ChatToolbar', () => {
   it('groups chat controls and actions', () => {

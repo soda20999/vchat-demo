@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
 
-import { MessageBubble } from './MessageBubble';
+import { MessageBubble } from '@/components/Chat/MessageBubble';
 
 const now = new Date('2026-07-04T08:30:00.000Z');
 

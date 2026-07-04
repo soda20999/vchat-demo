@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
 
-import { FormField } from './FormField';
+import { FormField } from '@/components/Ui/FormField';
 
 const inputClassName =
   'w-full rounded-lg border border-white/10 bg-[#202123] px-3 py-2 text-sm text-gray-100 outline-none transition focus:border-green-500/60';

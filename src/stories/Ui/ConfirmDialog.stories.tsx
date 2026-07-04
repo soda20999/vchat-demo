@@ -1,8 +1,8 @@
 import { useState, type ComponentProps } from 'react';
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
 
-import { ConfirmDialog } from './ConfirmDialog';
-import { Button } from './Button';
+import { Button } from '@/components/Ui/Button';
+import { ConfirmDialog } from '@/components/Ui/ConfirmDialog';
 
 const meta = {
   title: 'Ui/ConfirmDialog',

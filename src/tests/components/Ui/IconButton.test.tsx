@@ -1,7 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
-import { IconButton } from './IconButton';
+import { IconButton } from '@/components/Ui/IconButton';
 
 describe('IconButton', () => {
   it('renders an accessible icon button with tooltip text', () => {

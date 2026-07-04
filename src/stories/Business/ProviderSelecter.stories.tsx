@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
 
 import { LOCAL_PROVIDERS } from '@/config/providers';
-import { ProviderSelect } from './ProviderSelecter';
+import { ProviderSelect } from '@/components/Provider/ProviderSelecter';
 
 const meta = {
   title: 'Business/ProviderSelect',

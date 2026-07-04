@@ -6,7 +6,7 @@ import type { StorybookConfig } from '@storybook/nextjs-vite';
 const dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const config: StorybookConfig = {
-  stories: ['../src/**/*.stories.@(ts|tsx|mdx)'],
+  stories: ['../src/stories/**/*.stories.@(ts|tsx|mdx)'],
   addons: ['@storybook/addon-docs'],
   framework: {
     name: '@storybook/nextjs-vite',

@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 
-import { FormField } from './FormField';
+import { FormField } from '@/components/Ui/FormField';
 
 describe('FormField', () => {
   it('connects label, hint, error, and input', () => {

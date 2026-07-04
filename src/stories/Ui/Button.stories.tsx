@@ -1,7 +1,7 @@
 import { Icon } from '@iconify/react';
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
 
-import { Button } from './Button';
+import { Button } from '@/components/Ui/Button';
 
 const meta = {
   title: 'Ui/Button',
