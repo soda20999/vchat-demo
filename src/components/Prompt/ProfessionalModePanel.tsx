@@ -3,6 +3,8 @@
 import { useState } from 'react';
 import { Icon } from '@iconify/react';
 
+import { SettingNumberField } from '@/components/Ui/SettingNumberField';
+import { SettingToggleRow } from '@/components/Ui/SettingToggleRow';
 import { useChatStore } from '@/stores/chatStore';
 
 type ProfessionalModePanelProps = {
@@ -33,75 +35,6 @@ function FieldLabel({ label, tip }: { label: string; tip: string }) {
       {label}
       <InfoTip text={tip} />
     </span>
-  );
-}
-
-function NumberField({
-  label,
-  tip,
-  value,
-  min,
-  max,
-  step,
-  onChange,
-}: {
-  label: string;
-  tip: string;
-  value: number;
-  min: number;
-  max: number;
-  step: number;
-  onChange: (value: number) => void;
-}) {
-  return (
-    <label className="grid gap-1.5">
-      <FieldLabel label={label} tip={tip} />
-      <input
-        aria-label={label}
-        type="number"
-        min={min}
-        max={max}
-        step={step}
-        value={value}
-        onChange={(event) => {
-          const nextValue = Number(event.target.value);
-          if (Number.isFinite(nextValue)) {
-            onChange(nextValue);
-          }
-        }}
-        className="h-10 rounded-lg border border-white/10 bg-[#101114] px-3 text-sm text-white outline-none [appearance:textfield] transition focus:border-green-500/70 [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
-      />
-    </label>
-  );
-}
-
-function ToggleRow({
-  label,
-  tip,
-  active,
-  onClick,
-}: {
-  label: string;
-  tip: string;
-  active: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <div className="flex items-center justify-between rounded-lg bg-white/5 px-3 py-2.5">
-      <FieldLabel label={label} tip={tip} />
-      <button
-        type="button"
-        aria-label={`${label} ${active ? '开' : '关'}`}
-        onClick={onClick}
-        className={`h-5 w-9 rounded-full p-0.5 transition ${active ? 'bg-green-500' : 'bg-gray-600'}`}
-      >
-        <span
-          className={`block h-4 w-4 rounded-full bg-white transition ${
-            active ? 'translate-x-4' : 'translate-x-0'
-          }`}
-        />
-      </button>
-    </div>
   );
 }
 
@@ -172,7 +105,7 @@ export function ProfessionalModePanel({ openMenu, setOpenMenu }: ProfessionalMod
           {tab === 'params' ? (
             <div className="grid gap-3">
               <div className="grid grid-cols-2 gap-3">
-                <NumberField
+                <SettingNumberField
                   label="温度"
                   tip="数值越高，回答越发散。"
                   min={0}
@@ -181,7 +114,7 @@ export function ProfessionalModePanel({ openMenu, setOpenMenu }: ProfessionalMod
                   value={promptSettings.temperature}
                   onChange={(temperature) => updateSettings({ temperature })}
                 />
-                <NumberField
+                <SettingNumberField
                   label="Top P"
                   tip="控制候选词采样范围。"
                   min={0}
@@ -192,7 +125,7 @@ export function ProfessionalModePanel({ openMenu, setOpenMenu }: ProfessionalMod
                 />
               </div>
 
-              <NumberField
+              <SettingNumberField
                 label="最大 Token"
                 tip="限制单次回答长度。"
                 min={100}
@@ -216,7 +149,7 @@ export function ProfessionalModePanel({ openMenu, setOpenMenu }: ProfessionalMod
             </div>
           ) : (
             <div className="grid gap-2">
-              <ToggleRow
+              <SettingToggleRow
                 label="长期记忆"
                 tip="保留跨会话的重要偏好。"
                 active={contextOptions.memoryEnabled}
@@ -224,7 +157,7 @@ export function ProfessionalModePanel({ openMenu, setOpenMenu }: ProfessionalMod
                   updateContextOptions({ memoryEnabled: !contextOptions.memoryEnabled })
                 }
               />
-              <ToggleRow
+              <SettingToggleRow
                 label="会话摘要"
                 tip="用摘要压缩较长上下文。"
                 active={contextOptions.summaryEnabled}
@@ -232,7 +165,7 @@ export function ProfessionalModePanel({ openMenu, setOpenMenu }: ProfessionalMod
                   updateContextOptions({ summaryEnabled: !contextOptions.summaryEnabled })
                 }
               />
-              <ToggleRow
+              <SettingToggleRow
                 label="相关历史"
                 tip="召回和当前问题相关的历史。"
                 active={contextOptions.relevantHistoryEnabled}

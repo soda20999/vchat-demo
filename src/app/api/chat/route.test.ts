@@ -46,10 +46,26 @@ vi.mock('@/lib/logger', () => ({
   },
 }));
 
+const DEFAULT_CHAT_BODY = {
+  content: '今晚吃什么',
+  model: 'deepseek-v4-pro',
+  providerName: 'deepseek',
+};
 const memoryService = await import('@/db/service/memory');
 const messageService = await import('@/db/service/message');
 const summarizer = await import('@/ai/context/summarizer');
 const { POST } = await import('./route');
+
+function createChatRequest(body: object) {
+  return new Request('http://localhost/api/chat', {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      'x-user-id': 'user-1',
+    },
+    body: JSON.stringify({ ...DEFAULT_CHAT_BODY, ...body }),
+  });
+}
 
 async function readStream(response: Response) {
   const reader = response.body?.getReader();
@@ -65,6 +81,17 @@ async function readStream(response: Response) {
   }
 }
 
+function mockSuccessfulStream() {
+  streamChat.mockImplementation(async (_prompt, _model, _schema, onChunk) => {
+    onChunk?.('ok');
+    return { answer: 'ok' };
+  });
+}
+
+function expectStreamOptions(options: object) {
+  expect(streamChat.mock.calls[0][5]).toMatchObject(options);
+}
+
 describe('POST /api/chat prompt settings', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -73,33 +100,20 @@ describe('POST /api/chat prompt settings', () => {
     vi.mocked(messageService.createMessage)
       .mockResolvedValueOnce({ id: 11 } as never)
       .mockResolvedValueOnce({ id: 12 } as never);
-    streamChat.mockImplementation(async (_prompt, _model, _schema, onChunk) => {
-      onChunk?.('ok');
-      return { answer: 'ok' };
-    });
+    mockSuccessfulStream();
   });
 
   it('uses backend role template defaults and respects disabled memory/summary switches', async () => {
     const response = await POST(
-      new Request('http://localhost/api/chat', {
-        method: 'POST',
-        headers: {
-          'content-type': 'application/json',
-          'x-user-id': 'user-1',
+      createChatRequest({
+        contextOptions: {
+          memoryEnabled: false,
+          summaryEnabled: false,
         },
-        body: JSON.stringify({
-          content: '今晚吃什么',
-          model: 'deepseek-v4-pro',
-          providerName: 'deepseek',
-          contextOptions: {
-            memoryEnabled: false,
-            summaryEnabled: false,
-          },
-          promptSettings: {
-            templateId: 'role-food',
-          },
-        }),
-      })
+        promptSettings: {
+          templateId: 'role-food',
+        },
+      }),
     );
 
     await readStream(response);
@@ -107,7 +121,7 @@ describe('POST /api/chat prompt settings', () => {
     expect(streamChat).toHaveBeenCalled();
     expect(streamChat.mock.calls[0][0]).toContain('[System]');
     expect(streamChat.mock.calls[0][0]).toContain('food');
-    expect(streamChat.mock.calls[0][5]).toMatchObject({
+    expectStreamOptions({
       temperature: expect.any(Number),
       topP: expect.any(Number),
       maxTokens: expect.any(Number),
@@ -119,25 +133,16 @@ describe('POST /api/chat prompt settings', () => {
 
   it('lets frontend prompt settings override backend template defaults', async () => {
     const response = await POST(
-      new Request('http://localhost/api/chat', {
-        method: 'POST',
-        headers: {
-          'content-type': 'application/json',
-          'x-user-id': 'user-1',
+      createChatRequest({
+        content: '帮我复习',
+        promptSettings: {
+          templateId: 'role-study',
+          systemPrompt: 'Custom system prompt',
+          temperature: 1.2,
+          topP: 0.4,
+          maxTokens: 321,
         },
-        body: JSON.stringify({
-          content: '帮我复习',
-          model: 'deepseek-v4-pro',
-          providerName: 'deepseek',
-          promptSettings: {
-            templateId: 'role-study',
-            systemPrompt: 'Custom system prompt',
-            temperature: 1.2,
-            topP: 0.4,
-            maxTokens: 321,
-          },
-        }),
-      })
+      }),
     );
 
     const output = await readStream(response);

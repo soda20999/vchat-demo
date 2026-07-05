@@ -102,7 +102,7 @@ export const MessageInput: React.FC<MessageInputProps> = React.memo(
         {previewUrl ? <ImagePreview src={previewUrl} onRemove={clearImage} /> : null}
 
         <div className="flex items-center rounded-[28px] border border-gray-200 bg-gray-50 px-4 py-2.5 shadow-sm transition-colors duration-200 focus-within:border-green-700 focus-within:bg-white">
-          <RoleRadialMenu />
+          <RoleRadialMenu conversationId={conversationId} />
           <textarea
             ref={textareaRef}
             value={inputText}
