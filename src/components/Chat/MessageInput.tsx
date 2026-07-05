@@ -4,11 +4,12 @@
 import React, { useRef, useState } from 'react';
 import { ImagePreview } from '../Attachment/ImagePreview';
 import { ImageUploadTrigger } from '../Attachment/ImageUploadTrigger';
-import { ContextStatusBar } from './ContextStatusBar';
 import { PromptPanel } from '../Prompt/PromptPanel';
+import { ProfessionalModePanel } from '../Prompt/ProfessionalModePanel';
 import { useImageHandling } from '@/hooks/useImageHandling';
 import { IconButton } from '@/components/Ui/IconButton';
 import { ChatToolbar } from './ChatToolbar';
+import { RoleRadialMenu } from './RoleRadialMenu';
 
 interface MessageInputProps {
   // selectedModel：当前选中的模型名称，未选择时禁止发送。
@@ -96,11 +97,12 @@ export const MessageInput: React.FC<MessageInputProps> = React.memo(
       <div className="mx-auto w-full max-w-3xl px-4">
         <ChatToolbar className="mb-3" end={<ImageUploadTrigger onSelect={handleImageSelect} />}>
           <PromptPanel openMenu={openMenu} setOpenMenu={setOpenMenu} />
-          <ContextStatusBar openMenu={openMenu} setOpenMenu={setOpenMenu} />
+          <ProfessionalModePanel openMenu={openMenu} setOpenMenu={setOpenMenu} />
         </ChatToolbar>
         {previewUrl ? <ImagePreview src={previewUrl} onRemove={clearImage} /> : null}
 
-        <div className="flex items-end rounded-[28px] border border-gray-200 bg-gray-50 px-4 py-2.5 shadow-sm transition-colors duration-200 focus-within:border-green-700 focus-within:bg-white">
+        <div className="flex items-center rounded-[28px] border border-gray-200 bg-gray-50 px-4 py-2.5 shadow-sm transition-colors duration-200 focus-within:border-green-700 focus-within:bg-white">
+          <RoleRadialMenu />
           <textarea
             ref={textareaRef}
             value={inputText}
@@ -121,7 +123,7 @@ export const MessageInput: React.FC<MessageInputProps> = React.memo(
             loading={isUploading}
             disabled={!canSend}
             variant="solid"
-            className="mb-1.5 rounded-full"
+            className="rounded-full"
             onClick={() => void sendMessage()}
           />
         </div>

@@ -25,8 +25,10 @@ export const providers = pgTable('providers', {
 export const users = pgTable(
   'users',
   {
-    id: text('id').primaryKey().default('gen_random_uuid()'),
-    username: text('username').notNull(),
+    id: text('id')
+      .primaryKey()
+      .$defaultFn(() => crypto.randomUUID()),
+    username: text('username').notNull().unique(),
     email: text('email').notNull().unique(),
     password: text('password').notNull(),
     signature: text('signature').default('这个人很懒，什么都没有留下'),
