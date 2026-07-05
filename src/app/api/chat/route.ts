@@ -14,7 +14,7 @@ import {
 } from '@/lib/api-error';
 import { logger } from '@/lib/logger';
 import type { ChatStreamEvent } from '@/lib/sse-stream';
-import { sendMessageSchema } from '@/types/api';
+import { ChatPromptSettings, sendMessageSchema } from '@/types/api';
 
 export const runtime = 'nodejs';
 
@@ -47,6 +47,22 @@ function buildConversationTitle(content: string, image?: string) {
   if (content) return content.slice(0, 50);
   if (image) return '[Image]';
   return 'New Chat';
+}
+
+function resolvePromptSettings(promptSettings?: ChatPromptSettings) {
+  const template = promptSettings?.templateId
+    ? getPromptTemplate(promptSettings.templateId)
+    : undefined;
+  const defaults = template?.defaultParams;
+
+  return {
+    systemPrompt: promptSettings?.systemPrompt || template?.systemPrompt,
+    modelParams: {
+      temperature: promptSettings?.temperature ?? defaults?.temperature,
+      topP: promptSettings?.topP ?? defaults?.topP,
+      maxTokens: promptSettings?.maxTokens ?? defaults?.maxTokens,
+    },
+  };
 }
 
 function isAbortError(error: unknown) {
@@ -157,10 +173,7 @@ export async function POST(request: Request) {
       historyCount: historyMessages.length,
       memoryHitCount: memories.length,
     };
-    const template = body.promptSettings?.templateId
-      ? getPromptTemplate(body.promptSettings.templateId)
-      : undefined;
-    const systemPrompt = body.promptSettings?.systemPrompt || template?.systemPrompt;
+    const { systemPrompt, modelParams } = resolvePromptSettings(body.promptSettings);
 
     const chatContext = buildChatContext({
       modelName: model,
@@ -233,7 +246,7 @@ export async function POST(request: Request) {
               enqueueEvent({ type: 'delta', content: chunk });
             },
             image,
-            body.promptSettings,
+            modelParams,
             { signal: request.signal },
           );
 
@@ -253,14 +266,19 @@ export async function POST(request: Request) {
           });
           closeStream();
 
-          void memoryService.saveUserMemory(userId, content).catch((memoryError) => {
-            logger.warn('Save user memory failed', {
-              ...logContext,
-              error: memoryError,
+          if (body.contextOptions?.memoryEnabled !== false) {
+            void memoryService.saveUserMemory(userId, content).catch((memoryError) => {
+              logger.warn('Save user memory failed', {
+                ...logContext,
+                error: memoryError,
+              });
             });
-          });
+          }
 
-          if (shouldSummarizeContext(model, historyMessages.length + 2)) {
+          if (
+            body.contextOptions?.summaryEnabled !== false &&
+            shouldSummarizeContext(model, historyMessages.length + 2)
+          ) {
             const messagesForSummary = [
               ...historyMessages,
               { type: 'question' as const, content, image },

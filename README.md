@@ -1,147 +1,37 @@
-# VChat - AI 多模型聊天系统
+# VChat
 
-VChat 是一个基于 Next.js 16 + React 19 的 AI 多模型聊天系统，支持 DeepSeek / Qwen 模型切换、Token 级流式响应、场景化 Prompt、长对话上下文管理、会话持久化和基于 pgvector 的轻量级长期记忆。
+VChat 是一个基于 Next.js 16、React 19 和 TypeScript 的 AI 多模型聊天系统。项目支持 DeepSeek、Qwen 模型接入，提供流式对话、会话持久化、上下文管理、Prompt 模板、轻量长期记忆、AI 角色化交互和专业模式参数配置。
 
 ## 技术栈
 
-- Next.js 16 / React 19 / TypeScript
-- Tailwind CSS / Zustand / use-immer
-- Drizzle ORM / PostgreSQL / pgvector
-- OpenAI SDK 兼容接口
-- DashScope Embedding API
-- MarkdownIt / react-virtuoso
-- Docker
+- Next.js 16、React 19、TypeScript
+- Tailwind CSS、Zustand、use-immer
+- Drizzle ORM、PostgreSQL、pgvector
+- OpenAI SDK 兼容接口、DashScope Embedding API
+- MarkdownIt、react-virtuoso
+- Zod、Vitest、Testing Library
+- Storybook、ESLint、Prettier、lint-staged、Husky
 
-## 功能亮点
+## 运行环境
 
-- **Token 级流式对话体验**：基于 `fetch`、`ReadableStream`、`TextDecoder` 和 NDJSON 事件实现流式输出，支持 Stop、Retry、异常兜底和消息状态更新。
-- **多模型统一接入**：通过 OpenAI SDK 兼容封装统一 DeepSeek 与 Qwen 调用逻辑，当前支持 `deepseek-v4-pro`、`qwen-plus`、`qwen-turbo`。
-- **场景化 Prompt 配置**：内置生活规划、饮食建议、写作润色、情绪支持等 Prompt 模板，并支持温度、Top-P、最大 Token 等参数配置。
-- **长对话上下文管理**：结合会话摘要、相关历史召回、最近轮次保留和 Token 预算估算，降低长对话上下文膨胀带来的成本。
-- **轻量级长期记忆能力**：基于 DashScope Embedding API + PostgreSQL pgvector 构建 Lightweight Vector Store，使用余弦相似度实现用户信息 Top-K 语义召回，并动态注入 Prompt。
-- **会话与消息持久化**：使用 Drizzle ORM 管理用户、会话、消息、Provider、长期记忆等数据表。
-
-## 项目结构
-
-```text
-src
-├─ ai
-│  ├─ context          # 上下文组装、摘要、相关历史、Token 估算
-│  ├─ memory           # 长期记忆分析与 Embedding
-│  ├─ prompt           # 场景化 Prompt 模板
-│  ├─ providers        # DeepSeek / Qwen Provider
-│  ├─ interface.ts
-│  └─ provider-factory.ts
-├─ app
-│  ├─ api              # Auth / Chat / Conversations / Providers API
-│  ├─ auth             # 登录注册页面
-│  ├─ conversation     # 会话页面
-│  └─ settings
-├─ components
-│  ├─ Chat             # 聊天窗口、消息列表、输入框、上下文开关
-│  ├─ Prompt           # Prompt 模板与快捷入口
-│  ├─ Provider         # 模型选择
-│  └─ Ui               # 通用 UI 组件
-├─ db
-│  ├─ schema.ts        # Drizzle 数据表定义
-│  └─ service          # 数据库读写逻辑
-├─ stores              # Zustand 状态管理
-├─ lib                 # API 响应、错误处理、工具函数
-└─ types               # TypeScript 类型
-```
-
-## 核心流程
-
-```text
-用户输入
-  ↓
-Zustand 乐观插入用户消息和 AI loading 消息
-  ↓
-POST /api/chat
-  ↓
-读取会话历史、摘要、长期记忆
-  ↓
-buildChatContext 组装 Prompt
-  ↓
-OpenAI SDK 兼容层调用 DeepSeek / Qwen
-  ↓
-ReadableStream 流式返回 delta
-  ↓
-前端实时追加 AI 消息内容
-  ↓
-回复完成后持久化消息、保存长期记忆、按需生成摘要
-```
-
-## 环境变量
-
-在项目根目录创建 `.env.local`：
-
-```env
-DATABASE_URL=postgres://username:password@localhost:5432/vchat_db
-
-DEEPSEEK_API_KEY=your_deepseek_api_key
-QWEN_API_KEY=your_qwen_api_key
-DASHSCOPE_API_KEY=your_dashscope_api_key
-
-JWT_ACCESS_SECRET=your_access_secret
-JWT_REFRESH_SECRET=your_refresh_secret
-```
-
-说明：
-
-- `DATABASE_URL` 用于 Drizzle 连接 PostgreSQL。
-- `DASHSCOPE_API_KEY` 用于 `text-embedding-v4` 生成长期记忆向量。
-- 至少配置 `DEEPSEEK_API_KEY` 或 `QWEN_API_KEY` 中的一个。
-- 数据库需要启用 `pgvector` 扩展。
-
-## 数据库准备
-
-如果使用 Docker 部署 PostgreSQL，推荐使用 pgvector 镜像：
+项目和 CI 对齐 Node 20：
 
 ```bash
-docker run -d \
-  --name vchat-postgres \
-  -e POSTGRES_USER=mumu \
-  -e POSTGRES_PASSWORD=your_password \
-  -e POSTGRES_DB=vchat_db \
-  -p 5432:5432 \
-  --restart unless-stopped \
-  pgvector/pgvector:pg16
+node >=20 <21
+npm >=10 <11
 ```
 
-进入数据库启用扩展：
+建议使用 Node 20 和 npm 10。本地如果出现 `EBADENGINE`，优先切换 Node/npm 版本，不要直接放宽 `package.json` 的 `engines`。
 
-```bash
-docker exec -it vchat-postgres psql -U mumu -d vchat_db -c "CREATE EXTENSION IF NOT EXISTS vector;"
-```
-
-同步表结构：
-
-```bash
-npm run db:push
-```
-
-检查长期记忆表：
-
-```bash
-docker exec -it vchat-postgres psql -U mumu -d vchat_db -c "\d user_memories"
-```
-
-需要看到：
-
-```text
-embedding | vector(1024)
-```
-
-## 本地启动
+## 快速开始
 
 安装依赖：
 
 ```bash
-npm install
+npm ci
 ```
 
-启动开发环境：
+本地开发：
 
 ```bash
 npm run dev
@@ -153,163 +43,16 @@ npm run dev
 http://localhost:3000
 ```
 
-构建生产版本：
+生产构建和启动：
 
 ```bash
 npm run build
 npm run start
 ```
 
-## 常用命令
+## 环境变量
 
-```bash
-npm run dev        # 启动开发环境
-npm run build      # 构建生产版本
-npm run start      # 启动生产服务
-npm run lint       # 代码检查
-npm run db:push    # 同步 Drizzle schema
-npm run db:studio  # 打开 Drizzle Studio
-```
-
-## 长期记忆测试
-
-发送一条能触发记忆的消息：
-
-```text
-我喜欢晚上学习，而且希望你以后回答简短一点
-```
-
-等待 AI 回复完成后查询数据库：
-
-```bash
-docker exec -it vchat-postgres psql -U mumu -d vchat_db -c "SELECT id, content, category, keywords FROM user_memories ORDER BY id DESC LIMIT 5;"
-```
-
-再发送：
-
-```text
-你觉得我什么时候复习比较合适？
-```
-
-如果回答参考了“晚上学习”等信息，说明 Embedding + pgvector 召回和 Prompt 注入已生效。
-
-## 数据表
-
-- `users`：用户信息
-- `refresh_tokens`：刷新令牌
-- `providers`：模型供应商配置
-- `conversations`：会话、标题、摘要、选中模型
-- `messages`：用户消息和 AI 回复
-- `user_memories`：长期记忆文本、分类、关键词、Embedding 向量
-
-## Docker 部署
-
-项目提供 `docker-compose.yml` 用于启动应用容器：
-
-```bash
-docker compose up -d --build
-```
-
-## 开发与工程化说明
-
-### 运行环境
-
-- 推荐使用 Node.js 20，和 GitHub Actions CI 保持一致。
-- npm 版本使用 10.x。`package.json` 通过 `engines` 声明了 Node/npm 版本范围。
-
-### 本地开发
-
-首次安装依赖：
-
-```bash
-npm ci
-```
-
-日常开发也可以使用：
-
-```bash
-npm install
-```
-
-启动开发服务：
-
-```bash
-npm run dev
-```
-
-默认访问地址：
-
-```text
-http://localhost:3000
-```
-
-本地运行前先从 `.env.example` 复制一份 `.env.local`，再填入本机数据库和模型服务密钥。
-
-### 测试与质量检查
-
-常用检查命令：
-
-```bash
-npm run typecheck
-npm run lint
-npm run test
-npm run test:watch
-npm run format:check
-npm run check
-```
-
-专项检查命令：
-
-```bash
-npm run check:markdown-sanitize
-npm run check:chat-context
-npm run check:sse-stream
-```
-
-提交前会通过 Husky 自动执行 `lint-staged`，只对暂存的改动文件运行 ESLint 修复和 Prettier 格式化。提交 PR 前建议本地先运行：
-
-```bash
-npm run check
-```
-
-### 格式化
-
-格式化前端与工程化文件：
-
-```bash
-npm run format
-```
-
-只检查格式化状态：
-
-```bash
-npm run format:check
-```
-
-### 构建
-
-生产构建：
-
-```bash
-npm run build
-```
-
-启动生产服务：
-
-```bash
-npm run start
-```
-
-CI 在 Ubuntu + Node.js 20 环境中执行：
-
-```bash
-npm ci
-npm run check
-```
-
-### 环境变量
-
-`.env.example` 包含本地开发所需变量：
+复制 `.env.example` 为 `.env.local`，再填入本地配置：
 
 ```env
 DATABASE_URL=postgres://username:password@localhost:5432/vchat_db
@@ -325,39 +68,279 @@ LOG_TO_FILE=false
 LOG_DIR=logs
 ```
 
-- `DATABASE_URL`：PostgreSQL 连接地址，项目使用 Drizzle ORM。
-- `DEEPSEEK_API_KEY` / `QWEN_API_KEY`：模型服务密钥，至少配置一个可用模型提供方。
-- `DASHSCOPE_API_KEY`：用于 DashScope Embedding 和长期记忆相关能力。
-- `JWT_ACCESS_SECRET` / `JWT_REFRESH_SECRET`：登录认证 token 签名密钥，本地和生产环境都应使用安全随机值。
-- `LOG_TO_FILE`：本地服务器或 Docker 部署需要文件日志时设为 `true`。
-- `LOG_DIR`：文件日志输出目录，默认可写为 `logs`。
-- 不要提交 `.env.local` 或任何真实密钥。
+说明：
 
-### 数据库辅助命令
+- `DATABASE_URL`：PostgreSQL 连接地址，Drizzle ORM 使用。
+- `DEEPSEEK_API_KEY` / `QWEN_API_KEY`：模型服务密钥，至少配置一个可用提供方。
+- `DASHSCOPE_API_KEY`：用于 Embedding 和长期记忆。
+- `JWT_ACCESS_SECRET` / `JWT_REFRESH_SECRET`：登录认证 token 签名密钥。
+- `LOG_TO_FILE`：需要文件日志时设为 `true`。
+- `LOG_DIR`：文件日志输出目录，默认 `logs`。
 
-同步数据库 schema：
+## 常用命令
+
+```bash
+npm run dev                # 启动开发服务
+npm run build              # 生产构建
+npm run start              # 启动生产服务
+npm run typecheck          # TypeScript 类型检查
+npm run lint               # ESLint 检查
+npm run test               # Vitest 全量测试
+npm run test:watch         # Vitest watch 模式
+npm run format             # Prettier 格式化
+npm run format:check       # Prettier 格式检查
+npm run check              # typecheck + lint + test + build
+npm run storybook          # 启动 Storybook
+npm run build-storybook    # 构建 Storybook 静态产物
+npm run db:push            # 同步 Drizzle schema
+npm run db:seed            # 初始化种子数据
+npm run db:studio          # 打开 Drizzle Studio
+```
+
+专项检查：
+
+```bash
+npm run check:markdown-sanitize
+npm run check:chat-context
+npm run check:sse-stream
+```
+
+## 数据库准备
+
+推荐使用 pgvector 镜像启动 PostgreSQL：
+
+```bash
+docker run -d \
+  --name vchat-postgres \
+  -e POSTGRES_USER=mumu \
+  -e POSTGRES_PASSWORD=your_password \
+  -e POSTGRES_DB=vchat_db \
+  -p 5432:5432 \
+  --restart unless-stopped \
+  pgvector/pgvector:pg16
+```
+
+启用 pgvector 扩展：
+
+```bash
+docker exec -it vchat-postgres psql -U mumu -d vchat_db -c "CREATE EXTENSION IF NOT EXISTS vector;"
+```
+
+同步表结构：
 
 ```bash
 npm run db:push
 ```
 
-初始化种子数据：
+初始化基础数据：
 
 ```bash
 npm run db:seed
 ```
 
-打开 Drizzle Studio：
+长期记忆表需要包含：
 
-```bash
-npm run db:studio
+```text
+embedding | vector(1024)
 ```
 
-注意：当前 compose 文件只包含应用服务，PostgreSQL 需要单独部署或补充到 compose 中，并确保 `.env.local` 中的 `DATABASE_URL` 指向可访问的数据库。
+## 核心功能
 
-## 注意事项
+- **流式聊天**：`POST /api/chat` 返回 NDJSON 流，前端实时追加 delta，并处理 metadata、done、error 等事件。
+- **多模型接入**：通过 provider factory 统一 DeepSeek 和 Qwen 调用，当前模型包括 `deepseek-v4-pro`、`qwen-plus`、`qwen-turbo`。
+- **AI 角色化**：聊天输入框旁提供圆形角色菜单，当前角色包括饮食、出行、情绪、学习。选择角色后会同步角色 `systemPrompt` 和默认生成参数。
+- **会话内角色记忆**：角色选择按当前 conversation 记忆，切换会话时恢复对应会话角色，点击默认角色可恢复默认 Prompt 设置。
+- **专业模式**：把生成参数和记忆设置收进统一弹窗，支持温度、Top P、最大 Token、系统提示词、长期记忆、会话摘要、相关历史和最近轮数设置。
+- **长上下文管理**：结合会话摘要、相关历史、最近轮次、Token 预算和长期记忆，控制长对话上下文成本。
+- **长期记忆**：基于 DashScope Embedding API 和 PostgreSQL pgvector 做 Top-K 语义召回，并注入 Prompt。
+- **会话持久化**：使用 Drizzle 管理用户、会话、消息、Provider、refresh token 和长期记忆数据。
 
-- 不要提交 `.env`、`.env.local`、`.env.production` 中的真实 API Key。
-- 修改数据库 schema 后需要执行 `npm run db:push`。
-- 服务端环境变量变更后建议重启 `npm run dev`。
-- 如果删除了 App Router 路由但 build 仍引用旧路由，可清理 `.next` 后重新构建。
+## 前后端数据边界
+
+前端发送聊天请求时，可以携带：
+
+- `promptSettings.templateId`：角色或场景模板 ID，例如 `role-food`、`role-travel`、`role-emotion`、`role-study`。
+- `promptSettings.systemPrompt`：自定义系统提示词。
+- `promptSettings.temperature`、`topP`、`maxTokens`：模型生成参数。
+- `contextOptions.memoryEnabled`：是否启用长期记忆。
+- `contextOptions.summaryEnabled`：是否启用会话摘要。
+- `contextOptions.relevantHistoryEnabled`：是否召回相关历史。
+- `contextOptions.recentTurns`：携带最近对话轮数。
+
+后端 `src/app/api/chat/route.ts` 会解析这些字段，按模板默认值和前端显式值合并生成最终 Prompt 与模型参数。前端 DTO 和 UI Model 在边界层转换，避免接口 JSON 字段和 UI `Date` 对象混用。
+
+## 组件分层
+
+当前组件按职责分层：
+
+- `src/components/Ui`：基础 UI 组件，只接收 props，不直接依赖 store 或服务端实现。
+- `src/components/Chat`：聊天业务组件，包括输入框、消息展示、侧栏、角色菜单、工具栏等。
+- `src/components/Prompt`：Prompt、专业模式、快捷配置相关组件。
+- `src/components/Provider`：模型提供方选择组件。
+- `src/app/**`：页面和路由入口。
+
+已经沉淀的通用组件包括：
+
+- `Button`
+- `IconButton`
+- `FormField`
+- `ConfirmDialog`
+- `ErrorState`
+- `ChatToolbar`
+- `SettingNumberField`
+- `SettingToggleRow`
+- `MessageBubbleView`
+- `MessageActions`
+- `MessageListView`
+- `SidebarBody`
+- `SidebarSettingsMenu`
+- `SidebarToggleButton`
+
+## AI 角色和 Prompt 配置
+
+前端角色配置在：
+
+```text
+src/config/assistant-roles.ts
+```
+
+后端 Prompt 模板在：
+
+```text
+src/ai/prompt/prompt-templates.ts
+src/ai/prompt/prompt-template-factory.ts
+```
+
+新增角色时需要同时考虑：
+
+1. 前端角色展示配置：图标、颜色、说明、示例、`systemPrompt`、默认参数。
+2. 后端模板 ID：保证 `templateId` 能被 `getPromptTemplate` 解析。
+3. 测试：覆盖角色按钮展示、选择后 Prompt 参数同步、会话切换记忆。
+
+## Storybook
+
+Storybook 用于沉淀组件状态文档：
+
+```bash
+npm run storybook
+npm run build-storybook
+```
+
+当前 stories 目录：
+
+```text
+src/stories/Ui
+src/stories/Business
+```
+
+已覆盖的组件状态包括 Button、IconButton、FormField、ConfirmDialog、ErrorState、ProviderSelecter、MessageBubble、RoleRadialMenu、ProfessionalModePanel、SidebarParts 等。
+
+如果遇到 Storybook 构建写用户目录失败，优先检查本机权限和缓存目录；项目配置已使用 `--disable-telemetry` 降低无关写入。
+
+## 工程化约束
+
+- `format` / `format:check`：统一 Prettier 格式化。
+- `lint-staged`：提交前只处理暂存区改动文件。
+- `Husky`：提交前自动触发 lint-staged。
+- `engines`：锁定 Node 20 和 npm 10 范围。
+- `ESLint import boundary`：限制前端组件、store、types、db 的越层依赖。
+- `Storybook`：组件状态文档和视觉回归参考。
+- `Vitest`：覆盖组件、store、API route、Prompt、上下文、SSE、日志、校验等测试。
+
+当前 import boundary 的关键规则：
+
+- `components` 和 `stores` 不直接引用 DB、服务端 auth、Route Handler、服务端 response 封装。
+- `components/Ui` 不依赖 store 或服务端实现，只通过 props 接收数据和事件。
+- `types` 只放纯类型和共享契约，不依赖组件、store、页面或服务端实现。
+- `db` 不反向依赖组件、store 或页面层。
+
+## 测试说明
+
+全量测试：
+
+```bash
+npm run test
+```
+
+测试文件主要覆盖：
+
+- 组件测试：RoleRadialMenu、ProfessionalModePanel、Sidebar、MessageBubbleView、ConfirmDialog、ErrorState、FormField、IconButton、ChatToolbar。
+- store 测试：聊天 DTO hydration。
+- API route 测试：register、logout、chat。
+- AI 上下文测试：context builder、policy、message ranker、token estimator。
+- Prompt 测试：prompt templates 和 template factory。
+- 工具测试：markdown sanitize、SSE stream、validators、logger。
+
+测试代码维护原则：
+
+- 在单个测试文件内抽语义化 helper。
+- 默认对象和 mock 数据用常量或 factory。
+- 不为了复用把测试抽到难以阅读。
+- 用户行为测试优先表达业务规则，而不是操作流水账。
+
+## 项目结构
+
+```text
+src
+├─ ai
+│  ├─ context          # 上下文组装、摘要、相关历史、Token 估算
+│  ├─ memory           # 长期记忆分析和 Embedding
+│  ├─ prompt           # Prompt 模板和工厂
+│  ├─ providers        # DeepSeek / Qwen Provider
+│  └─ provider-factory.ts
+├─ app
+│  ├─ api              # Auth / Chat / Conversations / Providers API
+│  ├─ auth             # 登录注册页面
+│  ├─ conversation     # 会话页面
+│  └─ settings
+├─ components
+│  ├─ Attachment       # 图片预览和上传入口
+│  ├─ Chat             # 聊天窗口、消息、输入框、侧栏、角色菜单
+│  ├─ Prompt           # Prompt 面板和专业模式
+│  ├─ Provider         # 模型选择
+│  └─ Ui               # 通用 UI 组件
+├─ config              # 前端配置，如角色、Provider
+├─ db                  # Drizzle schema 和 service
+├─ hooks               # 前端 hooks
+├─ lib                 # API 响应、错误处理、日志、工具函数
+├─ stories             # Storybook stories
+├─ stores              # Zustand 状态管理
+├─ tests               # 页面和组件测试
+└─ types               # DTO、UI Model 和共享类型
+```
+
+## 核心聊天流程
+
+```text
+用户输入
+  -> 前端根据当前会话、模型、角色、专业模式参数组装请求
+  -> Zustand 乐观插入用户消息和 AI loading 消息
+  -> POST /api/chat
+  -> 后端校验请求，解析 promptSettings 和 contextOptions
+  -> 读取会话历史、摘要、长期记忆
+  -> buildChatContext 组装 Prompt
+  -> Provider 层调用 DeepSeek / Qwen
+  -> ReadableStream 返回 metadata / delta / done / error
+  -> 前端实时追加 AI 消息
+  -> 完成后持久化消息，按需保存长期记忆和生成摘要
+```
+
+## Docker 部署
+
+项目提供 `docker-compose.yml` 用于构建应用服务：
+
+```bash
+docker compose up -d --build
+```
+
+注意：当前 compose 主要覆盖应用服务，PostgreSQL 可单独部署，也可以按需补充到 compose 中。需要确保 `.env.local` 或部署环境中的 `DATABASE_URL` 指向可访问的数据库。
+
+## 开发注意事项
+
+- 不要提交 `.env`、`.env.local`、`.env.production` 里的真实密钥。
+- 修改数据库 schema 后执行 `npm run db:push`。
+- 修改环境变量后重启 `npm run dev`。
+- 新增 Next.js App Router、Route Handler 或 server action 前，先阅读 `node_modules/next/dist/docs/` 中对应版本文档。
+- 新增 UI 基础组件时保持 props 驱动，不直接读 store。
+- 新增业务组件时优先复用 `Ui` 和已有 `Chat` / `Prompt` 组件。
+- 新增 Prompt 角色时同步前端角色配置、后端模板和测试。

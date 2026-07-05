@@ -1,12 +1,17 @@
 import type { Meta, StoryObj } from '@storybook/nextjs-vite';
+import { fn } from 'storybook/test';
 
-import { MessageBubble } from '@/components/Chat/MessageBubble';
+import { MessageBubbleView } from '@/components/Chat/MessageBubbleView';
 
 const now = new Date('2026-07-04T08:30:00.000Z');
 
 const meta = {
   title: 'Business/MessageBubble',
-  component: MessageBubble,
+  component: MessageBubbleView,
+  args: {
+    onStop: fn(),
+    onRetry: fn(),
+  },
   decorators: [
     (Story) => (
       <div className="max-w-3xl">
@@ -14,7 +19,7 @@ const meta = {
       </div>
     ),
   ],
-} satisfies Meta<typeof MessageBubble>;
+} satisfies Meta<typeof MessageBubbleView>;
 
 export default meta;
 

@@ -1,13 +1,28 @@
 import { fireEvent, render, screen } from '@testing-library/react';
+import type { ComponentProps } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 
 import { ConfirmDialog } from '@/components/Ui/ConfirmDialog';
 
+const DEFAULT_DIALOG_PROPS = {
+  title: '确认退出',
+  onOpenChange: vi.fn(),
+  onConfirm: vi.fn(),
+};
+
+function renderDialog(props: Partial<ComponentProps<typeof ConfirmDialog>> = {}) {
+  const mergedProps = {
+    ...DEFAULT_DIALOG_PROPS,
+    open: true,
+    ...props,
+  };
+
+  return render(<ConfirmDialog {...mergedProps} />);
+}
+
 describe('ConfirmDialog', () => {
   it('does not render when closed', () => {
-    render(
-      <ConfirmDialog open={false} title="确认退出" onOpenChange={vi.fn()} onConfirm={vi.fn()} />,
-    );
+    renderDialog({ open: false });
 
     expect(screen.queryByRole('dialog')).toBeNull();
   });
@@ -16,18 +31,14 @@ describe('ConfirmDialog', () => {
     const onOpenChange = vi.fn();
     const onConfirm = vi.fn();
 
-    render(
-      <ConfirmDialog
-        open
-        title="确认退出"
-        description="退出后需要重新登录。"
-        confirmText="退出"
-        cancelText="再想想"
-        variant="danger"
-        onOpenChange={onOpenChange}
-        onConfirm={onConfirm}
-      />,
-    );
+    renderDialog({
+      description: '退出后需要重新登录。',
+      confirmText: '退出',
+      cancelText: '再想想',
+      variant: 'danger',
+      onOpenChange,
+      onConfirm,
+    });
 
     expect(screen.getByRole('dialog')).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: '退出' }));
@@ -40,7 +51,7 @@ describe('ConfirmDialog', () => {
   it('closes with Escape when not loading', () => {
     const onOpenChange = vi.fn();
 
-    render(<ConfirmDialog open title="确认删除" onOpenChange={onOpenChange} onConfirm={vi.fn()} />);
+    renderDialog({ title: '确认删除', onOpenChange });
 
     fireEvent.keyDown(document, { key: 'Escape' });
 
@@ -50,16 +61,7 @@ describe('ConfirmDialog', () => {
   it('keeps open while loading', () => {
     const onOpenChange = vi.fn();
 
-    render(
-      <ConfirmDialog
-        open
-        loading
-        title="确认退出"
-        cancelText="取消"
-        onOpenChange={onOpenChange}
-        onConfirm={vi.fn()}
-      />,
-    );
+    renderDialog({ loading: true, cancelText: '取消', onOpenChange });
 
     fireEvent.keyDown(document, { key: 'Escape' });
     fireEvent.mouseDown(screen.getByRole('presentation'));

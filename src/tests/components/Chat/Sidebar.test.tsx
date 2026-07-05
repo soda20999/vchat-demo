@@ -24,32 +24,52 @@ vi.mock('@/stores/chatStore', () => ({
     selector({ switchConversation }),
 }));
 
+function mockLogoutSuccess() {
+  vi.stubGlobal(
+    'fetch',
+    vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ code: 200, data: { ok: true } }),
+    }),
+  );
+}
+
+function renderSidebar() {
+  render(<Sidebar />);
+}
+
+function clickButton(name: string) {
+  fireEvent.click(screen.getByRole('button', { name }));
+}
+
+function openSettings() {
+  clickButton('设置');
+}
+
+function requestLogout() {
+  openSettings();
+  clickButton('登出账号');
+}
+
 describe('Sidebar settings menu', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.stubGlobal(
-      'fetch',
-      vi.fn().mockResolvedValue({
-        ok: true,
-        json: async () => ({ code: 200, data: { ok: true } }),
-      }),
-    );
+    mockLogoutSuccess();
   });
 
   it('opens a settings panel with logout action', () => {
-    render(<Sidebar />);
+    renderSidebar();
 
-    fireEvent.click(screen.getByRole('button', { name: '设置' }));
+    openSettings();
 
     expect(screen.getByRole('button', { name: '登出账号' })).toBeTruthy();
   });
 
   it('logs out after confirmation and redirects to auth page', async () => {
-    render(<Sidebar />);
+    renderSidebar();
 
-    fireEvent.click(screen.getByRole('button', { name: '设置' }));
-    fireEvent.click(screen.getByRole('button', { name: '登出账号' }));
-    fireEvent.click(screen.getByRole('button', { name: '退出' }));
+    requestLogout();
+    clickButton('退出');
 
     await waitFor(() => {
       expect(fetch).toHaveBeenCalledWith('/api/auth/logout', {
@@ -62,12 +82,25 @@ describe('Sidebar settings menu', () => {
   });
 
   it('does not log out when the confirm dialog is cancelled', () => {
-    render(<Sidebar />);
+    renderSidebar();
 
-    fireEvent.click(screen.getByRole('button', { name: '设置' }));
-    fireEvent.click(screen.getByRole('button', { name: '登出账号' }));
-    fireEvent.click(screen.getByRole('button', { name: '取消' }));
+    requestLogout();
+    clickButton('取消');
 
     expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it('starts a new conversation and closes the settings menu', async () => {
+    renderSidebar();
+
+    openSettings();
+    expect(screen.getByRole('button', { name: '登出账号' })).toBeTruthy();
+
+    clickButton('发起新对话');
+
+    await waitFor(() => {
+      expect(switchConversation).toHaveBeenCalledWith(0);
+    });
+    expect(screen.queryByRole('button', { name: '登出账号' })).toBeNull();
   });
 });
