@@ -1,12 +1,10 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import {
-  acquireDistributedLock,
-  consumeTokenBucket,
-  createChatRequestGuard,
-  waitForQueueTurn,
-} from './chat-governance';
-import type { RedisCommandArg, RedisCommandClient } from './redis-client';
+import { createChatRequestGuard } from './chat-governance';
+import type { RedisCommandArg, RedisCommandClient } from './client';
+import { acquireDistributedLock } from './distributed-lock';
+import { waitForQueueTurn } from './request-queue';
+import { consumeTokenBucket } from './token-bucket';
 
 class FakeRedis implements RedisCommandClient {
   calls: RedisCommandArg[][] = [];

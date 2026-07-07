@@ -48,7 +48,7 @@ vi.mock('@/lib/logger', () => ({
   },
 }));
 
-vi.mock('@/lib/chat-governance', () => ({
+vi.mock('@/lib/redis/chat-governance', () => ({
   createChatRequestGuard,
 }));
 
