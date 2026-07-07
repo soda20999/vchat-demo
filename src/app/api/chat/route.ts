@@ -12,7 +12,10 @@ import {
   streamErrorResponse,
   streamResponse,
 } from '@/lib/api-error';
-import { createChatRequestGuard, type ChatGovernanceGuard } from '@/lib/chat-governance';
+import {
+  createChatRequestGuard,
+  type ChatGovernanceGuard,
+} from '@/lib/redis/chat-governance';
 import { logger } from '@/lib/logger';
 import type { ChatStreamEvent } from '@/lib/sse-stream';
 import { ChatPromptSettings, sendMessageSchema } from '@/types/api';

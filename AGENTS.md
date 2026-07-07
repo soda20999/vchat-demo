@@ -94,6 +94,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 触发口令：`后端接口`、`后端模式`、`API 模式`。
 
 - 只负责 `src/app/api`、`src/db`、`src/lib/auth`、服务端校验、接口行为和数据流。
+- 必须先根据用户的需求，进行分析并且提出一种方向或者开发，先给用户审核，审核完毕之后，再在第二次对话执行编码
 - 涉及 Next Route Handler、cookies、redirect、server actions 时，先读 `node_modules/next/dist/docs/` 相关文档。
 - 不主动修改前端样式和组件，除非用户明确要求。
 - 完成后补充或更新接口测试，并跑 `typecheck` 和相关测试。
