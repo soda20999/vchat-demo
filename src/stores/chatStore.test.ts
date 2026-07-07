@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { hydrateConversation, hydrateMessage } from './chatStore';
+import { hydrateConversation, hydrateMessage, useChatStore } from './chatStore';
 import type { ConversationDto, MessageDto } from '@/types';
 
 function createConversationDto(overrides: Partial<ConversationDto> = {}): ConversationDto {
@@ -51,5 +51,59 @@ describe('chat store hydration', () => {
     const message = hydrateMessage(dto);
 
     expectHydratedDate(message.createdAt, dto.createdAt);
+  });
+
+  it('keeps loaded history in chronological display order when switching conversations', async () => {
+    const originalFetch = globalThis.fetch;
+
+    globalThis.fetch = async () =>
+      new Response(
+        JSON.stringify({
+          code: 200,
+          data: [
+            createMessageDto({
+              id: 11,
+              type: 'answer',
+              content: 'AI 回复',
+              createdAt: '2026-07-04T08:20:00.001Z',
+            }),
+            createMessageDto({
+              id: 12,
+              type: 'question',
+              content: '用户问题',
+              createdAt: '2026-07-04T08:20:00.002Z',
+            }),
+          ],
+        }),
+        {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        },
+      );
+
+    useChatStore.setState({
+      conversations: [
+        hydrateConversation(
+          createConversationDto({
+            id: 1,
+            selectedModel: 'qwen-plus',
+          }),
+        ),
+      ],
+      messages: [],
+      currentConversationId: null,
+      selectedModel: 'qwen-plus',
+    });
+
+    try {
+      await useChatStore.getState().switchConversation(1);
+
+      expect(useChatStore.getState().messages.map((message) => message.type)).toEqual([
+        'question',
+        'answer',
+      ]);
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
   });
 });

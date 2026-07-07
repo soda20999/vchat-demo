@@ -111,6 +111,23 @@ export function hydrateMessage(message: MessageDto): Message {
   };
 }
 
+function sortMessagesForDisplay(messages: Message[]): Message[] {
+  return [...messages].sort((left, right) => {
+    const leftTime = left.createdAt.getTime();
+    const rightTime = right.createdAt.getTime();
+    const timeDiff = leftTime - rightTime;
+
+    if (left.type !== right.type && Math.abs(timeDiff) < 1000) {
+      return left.type === 'question' ? -1 : 1;
+    }
+
+    if (timeDiff !== 0) return timeDiff;
+    if (left.type !== right.type) return left.type === 'question' ? -1 : 1;
+
+    return left.id - right.id;
+  });
+}
+
 /**
  * 函数名翻译：网络请求 API
  * 做的事：统一处理业务 API 的返回结构。发送 fetch 请求，并同时兼容 HTTP 状态码异常和后端自定义业务 code (非 200) 的错误拦截。
@@ -488,7 +505,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       // 如果在此期间用户又快速点击了别的会话，历史请求 ID 就会不匹配，此时直接丢弃返回的结果，防止乱序覆盖。
       if (requestId !== historyRequestId) return;
 
-      set({ messages: history.map(hydrateMessage) });
+      set({ messages: sortMessagesForDisplay(history.map(hydrateMessage)) });
     } catch (error) {
       if (requestId !== historyRequestId) return;
       console.error('Load history failed:', error);

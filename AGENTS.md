@@ -1,12 +1,13 @@
 <!-- BEGIN:nextjs-agent-rules -->
+
 # This is NOT the Next.js you know
 
 This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` before writing any code. Heed deprecation notices.
 <!-- END:nextjs-agent-rules -->
 
 <!-- BEGIN:project-coding-preferences -->
-# 项目协作偏好
 
+# 项目协作偏好
 
 ## 中文文案和中文注释
 
@@ -20,9 +21,22 @@ This version has breaking changes — APIs, conventions, and file structure may 
 - 默认只启用与当前任务直接相关的 skills。
 - 小改动不要使用 `planning-with-files`、`writing-plans`、`executing-plans`、`using-git-worktrees`。
 - 除非用户明确点名，否则不要读取大型流程类 skills。
+
+## 默认质量流程
+
+- 不管是否使用多 agent，任何代码或配置改动都必须先读相关文件，理解现有实现和调用关系后再修改。
+- 单线程执行时也必须包含三步：代码查看、实现修改、代码 review/验证。
+- 代码查看：修改前阅读直接相关文件、类型、测试和现有调用方；涉及 Next.js API 时先读 `node_modules/next/dist/docs/` 相关文档。
+- 实现修改：保持改动范围最小，优先复用已有模式和组件，不做无关重构。
+- 代码 review：完成后必须检查 diff，确认没有误改、遗漏边界、破坏类型或引入明显重复。
+- 验证：完成后必须运行相关验证命令；默认至少运行与改动相关的测试和 `typecheck`，必要时运行 `lint` / `build` / `npm run check`。
+- 多 agent 只是执行方式，不降低上述要求；即使不启用多 agent，主线程也要完成同等的查看、验证和 review。
+- 如果无法运行某项验证，必须在最终回复中说明原因、影响范围和替代检查结果。
+
 <!-- END:project-coding-preferences -->
 
 <!-- BEGIN:codex-conversation-modes -->
+
 # Codex 对话模式
 
 用户可以用短口令切换协作模式。用户没有说模式时，Codex 应根据需求自动判断最合适的模式，不要要求用户重复说明流程。
@@ -37,11 +51,17 @@ This version has breaking changes — APIs, conventions, and file structure may 
 
 ## 默认多 agent 策略
 
-- 用户平时只需要描述需求，不需要反复说明“使用多 agent”。
-- 如果任务能自然拆成只读探索、代码实现、测试验收，且拆分能降低上下文混乱或节省时间，Codex 可以主动在当前对话内部使用多 agent。
-- 小改动默认不启用多 agent，直接读相关文件并最小修改。
-- 中大型任务默认优先采用三段式多 agent：`explorer` 只读找上下文，`worker` 按明确文件范围实现，`reviewer/tester` 检查 diff 和验证。
-- 不要为了形式使用多 agent；如果单 agent 更快更稳，就直接完成。
+## 多 agent 使用限制
+
+- 默认不使用多 agent，小改动由当前主线程直接完成。
+- 只有用户明确说“使用多 agent”或任务需要大幅度更改并且跨模块时，才允许启用多 agent。
+- 启用多 agent 时最多固定 3 个：
+  1. explorer：只读代码，负责定位相关文件和风险点，不修改文件。
+  2. worker：负责实现，只修改明确范围内的文件。
+  3. reviewer/tester：负责检查 diff、运行验证、指出风险。
+- 禁止自动创建超过 3 个子智能体。
+- 禁止为同一职责重复创建多个子智能体。
+- reviewer/tester 不应重构代码，只做检查和必要的最小修复建议。
 
 ## 前后端边界
 
@@ -53,7 +73,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 
 ## 主控模式
 
-触发口令：`主控模式`、`主控集成模式`、`vchat 主控`。
+触发口令：`主控模式`、`主控集成`、`vchat 主控`。
 
 - 负责理解需求、拆任务、协调前端/后端/测试模块。
 - 可以使用多 agent，但最终必须由主控完成集成、验收和结果汇总。
@@ -62,7 +82,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 
 ## 前端组件模式
 
-触发口令：`前端组件模式`、`前端模式`、`组件模式`。
+触发口令：`前端组件`、`前端模式`、`组件模式`。
 
 - 只负责前端 UI、组件、交互、样式和用户可见文案。
 - 优先复用已有组件、图标库和设计风格。
@@ -71,7 +91,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 
 ## 后端接口模式
 
-触发口令：`后端接口模式`、`后端模式`、`API 模式`。
+触发口令：`后端接口`、`后端模式`、`API 模式`。
 
 - 只负责 `src/app/api`、`src/db`、`src/lib/auth`、服务端校验、接口行为和数据流。
 - 涉及 Next Route Handler、cookies、redirect、server actions 时，先读 `node_modules/next/dist/docs/` 相关文档。
@@ -80,7 +100,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 
 ## 测试验收模式
 
-触发口令：`测试验收模式`、`验收模式`、`review 模式`。
+触发口令：`测试验收`、`验收模式`、`review 模式`。
 
 - 主要负责检查改动、补测试、跑验证、发现 bug 和遗漏。
 - 优先输出：发现的问题、影响范围、建议修复、验证命令和结果。
@@ -92,6 +112,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 - 多 agent 只在任务能自然拆分、文件写入范围不冲突、或并行探索明显省时间时使用。
 - 多 agent 的结果不能直接视为完成，主控或当前对话必须复核 diff 并运行验证。
 - 每个 agent 都要有清楚边界，例如“只查不改”“只改前端”“只改后端”。
+
 <!-- END:codex-conversation-modes -->
 
 <!-- BEGIN:codex-skill-workflow-rules -->
