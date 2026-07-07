@@ -12,6 +12,7 @@ import {
   streamErrorResponse,
   streamResponse,
 } from '@/lib/api-error';
+import { createChatRequestGuard, type ChatGovernanceGuard } from '@/lib/chat-governance';
 import { logger } from '@/lib/logger';
 import type { ChatStreamEvent } from '@/lib/sse-stream';
 import { ChatPromptSettings, sendMessageSchema } from '@/types/api';
@@ -85,6 +86,7 @@ async function getProviderId(providerName: string) {
 
 export async function POST(request: Request) {
   const startedAt = Date.now();
+  let governanceGuard: Extract<ChatGovernanceGuard, { allowed: true }> | undefined;
   let logContext: Record<string, unknown> = {
     scope: 'api.chat',
     streamStatus: 'started',
@@ -133,6 +135,18 @@ export async function POST(request: Request) {
       return streamErrorResponse('Message content is required');
     }
     if (!providerName) return streamErrorResponse('Provider is required');
+
+    const guard = await createChatRequestGuard({
+      userId,
+      model,
+      providerName,
+      conversationId: requestedConversationId,
+      content,
+      image,
+      idempotencyKey: request.headers.get('idempotency-key'),
+    });
+    if (!guard.allowed) return streamErrorResponse(guard.message);
+    governanceGuard = guard;
 
     logger.info('Chat request started', logContext);
 
@@ -225,6 +239,10 @@ export async function POST(request: Request) {
             isStreamClosed = true;
           }
         };
+        const releaseGovernance = async () => {
+          await governanceGuard?.release();
+          governanceGuard = undefined;
+        };
 
         try {
           enqueueEvent({
@@ -265,6 +283,7 @@ export async function POST(request: Request) {
             durationMs: Date.now() - startedAt,
           });
           closeStream();
+          await releaseGovernance();
 
           if (body.contextOptions?.memoryEnabled !== false) {
             void memoryService.saveUserMemory(userId, content).catch((memoryError) => {
@@ -317,6 +336,7 @@ export async function POST(request: Request) {
               durationMs: Date.now() - startedAt,
             });
             closeStream();
+            await releaseGovernance();
             return;
           }
 
@@ -341,12 +361,14 @@ export async function POST(request: Request) {
             message: getErrorMessage(error, 'AI response failed'),
           });
           closeStream();
+          await releaseGovernance();
         }
       },
     });
 
     return streamResponse(stream);
   } catch (error) {
+    await governanceGuard?.release();
     logger.error('Chat request failed', {
       ...logContext,
       streamStatus: 'error',

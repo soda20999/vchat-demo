@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const streamChat = vi.fn();
+const createChatRequestGuard = vi.fn();
+const releaseGovernance = vi.fn();
 
 vi.mock('@/ai/provider-factory', () => ({
   getAIProvider: vi.fn(() => ({ streamChat })),
@@ -44,6 +46,10 @@ vi.mock('@/lib/logger', () => ({
     info: vi.fn(),
     warn: vi.fn(),
   },
+}));
+
+vi.mock('@/lib/chat-governance', () => ({
+  createChatRequestGuard,
 }));
 
 const DEFAULT_CHAT_BODY = {
@@ -100,6 +106,11 @@ describe('POST /api/chat prompt settings', () => {
     vi.mocked(messageService.createMessage)
       .mockResolvedValueOnce({ id: 11 } as never)
       .mockResolvedValueOnce({ id: 12 } as never);
+    createChatRequestGuard.mockResolvedValue({
+      allowed: true,
+      release: releaseGovernance,
+    });
+    releaseGovernance.mockResolvedValue(undefined);
     mockSuccessfulStream();
   });
 
@@ -129,6 +140,14 @@ describe('POST /api/chat prompt settings', () => {
     expect(memoryService.getRelevantMemories).not.toHaveBeenCalled();
     expect(memoryService.saveUserMemory).not.toHaveBeenCalled();
     expect(summarizer.summarizeMessages).not.toHaveBeenCalled();
+    expect(createChatRequestGuard).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'user-1',
+        model: 'deepseek-v4-pro',
+        providerName: 'deepseek',
+      })
+    );
+    expect(releaseGovernance).toHaveBeenCalled();
   });
 
   it('lets frontend prompt settings override backend template defaults', async () => {
@@ -154,5 +173,20 @@ describe('POST /api/chat prompt settings', () => {
       topP: 0.4,
       maxTokens: 321,
     });
+  });
+
+  it('rejects overloaded AI requests before database writes and model calls', async () => {
+    createChatRequestGuard.mockResolvedValue({
+      allowed: false,
+      message: 'AI request rate limit exceeded',
+    });
+
+    const response = await POST(createChatRequest({}));
+    const output = await readStream(response);
+
+    expect(output).toContain('AI request rate limit exceeded');
+    expect(messageService.createMessage).not.toHaveBeenCalled();
+    expect(streamChat).not.toHaveBeenCalled();
+    expect(releaseGovernance).not.toHaveBeenCalled();
   });
 });
