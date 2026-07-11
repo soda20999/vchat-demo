@@ -143,4 +143,14 @@ describe('RoleRadialMenu', () => {
     openRoleMenu();
     expect(roleButton('默认角色')).toBeTruthy();
   });
+  it('remembers selected role for a new conversation without an id', () => {
+    const { rerender } = render(<RoleRadialMenu />);
+
+    selectRole('饮食');
+    rerender(<RoleRadialMenu />);
+
+    expectLastPromptSettings(expect.objectContaining({ templateId: 'role-food' }));
+    openRoleMenu();
+    expect(roleButton('默认角色')).toBeTruthy();
+  });
 });

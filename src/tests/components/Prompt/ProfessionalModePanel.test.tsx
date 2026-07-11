@@ -79,4 +79,15 @@ describe('ProfessionalModePanel', () => {
     expect(screen.getByText('控制候选词采样范围。')).toBeTruthy();
     expect(screen.getByText('限制单次回答长度。')).toBeTruthy();
   });
+  it('updates system prompt from the textarea', () => {
+    renderProfessionalMode();
+
+    fireEvent.change(screen.getByRole('textbox'), {
+      target: { value: 'Answer with concise project context.' },
+    });
+
+    expect(updatePromptSettings).toHaveBeenCalledWith({
+      systemPrompt: 'Answer with concise project context.',
+    });
+  });
 });
