@@ -32,6 +32,7 @@ export const chatPromptSettingsSchema = z.object({
 
 export const sendMessageSchema = z
   .object({
+    requestId: z.string().trim().min(1).max(128).optional(),
     conversationId: z.number().int().positive().nullable().optional(),
     content: z.string().trim().optional().default(''),
     model: z.string().trim().min(1, 'Model is required'),

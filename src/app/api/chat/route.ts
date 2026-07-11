@@ -108,6 +108,7 @@ export async function POST(request: Request) {
     const model = normalizeModel(requestedModel);
     const providerName = (body.providerName || inferProviderName(model)).trim();
     const userId = getRequestUserId(request);
+    const requestId = body.requestId || request.headers.get('idempotency-key')?.trim() || null;
     const requestedConversationId =
       typeof body.conversationId === 'number' && body.conversationId > 0
         ? body.conversationId
@@ -119,6 +120,7 @@ export async function POST(request: Request) {
       requestedModel,
       model,
       providerName,
+      requestId,
       hasImage: Boolean(image),
       contentLength: content.length,
       memoryEnabled: body.contextOptions?.memoryEnabled !== false,
@@ -146,9 +148,10 @@ export async function POST(request: Request) {
       conversationId: requestedConversationId,
       content,
       image,
+      requestId,
       idempotencyKey: request.headers.get('idempotency-key'),
     });
-    if (!guard.allowed) return streamErrorResponse(guard.message);
+    if (!guard.allowed) return streamErrorResponse(guard.message, guard.status ?? 409);
     governanceGuard = guard;
 
     logger.info('Chat request started', logContext);
@@ -207,10 +210,19 @@ export async function POST(request: Request) {
       options: body.contextOptions,
     });
 
-    const [userMessage, aiMessage] = await Promise.all([
-      messageService.createMessage(conversation.id, content, 'question', 'finished', image),
-      messageService.createMessage(conversation.id, '', 'answer', 'loading'),
-    ]);
+    const userMessage = await messageService.createMessage(
+      conversation.id,
+      content,
+      'question',
+      'finished',
+      image,
+    );
+    const aiMessage = await messageService.createMessage(
+      conversation.id,
+      '',
+      'answer',
+      'loading',
+    );
 
     await conversationService.touchConversation(conversation.id);
     logContext = {

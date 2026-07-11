@@ -7,6 +7,7 @@ import { SidebarBody } from '@/components/Chat/SidebarBody';
 import { SidebarSettingsMenu } from '@/components/Chat/SidebarSettingsMenu';
 import { SidebarToggleButton } from '@/components/Chat/SidebarToggleButton';
 import { ConfirmDialog } from '@/components/Ui/ConfirmDialog';
+import { broadcastVchatEvent } from '@/lib/vchat-broadcast';
 import { useChatStore } from '@/stores/chatStore';
 
 export function Sidebar() {
@@ -41,6 +42,7 @@ export function Sidebar() {
         throw new Error(body?.message || '登出失败，请稍后重试');
       }
 
+      broadcastVchatEvent({ type: 'auth:logout' });
       router.refresh();
       router.replace('/auth');
     } catch (error) {

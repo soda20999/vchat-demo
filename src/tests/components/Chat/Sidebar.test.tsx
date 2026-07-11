@@ -6,6 +6,7 @@ import { Sidebar } from '@/components/Chat/Sidebar';
 const replace = vi.fn();
 const refresh = vi.fn();
 const switchConversation = vi.fn();
+const broadcastVchatEvent = vi.fn();
 
 vi.mock('next/navigation', () => ({
   usePathname: () => '/',
@@ -13,6 +14,10 @@ vi.mock('next/navigation', () => ({
     replace,
     refresh,
   }),
+}));
+
+vi.mock('@/lib/vchat-broadcast', () => ({
+  broadcastVchatEvent: (...args: unknown[]) => broadcastVchatEvent(...args),
 }));
 
 vi.mock('@/components/Chat/ConversationList', () => ({
@@ -54,6 +59,7 @@ function requestLogout() {
 describe('Sidebar settings menu', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    broadcastVchatEvent.mockClear();
     mockLogoutSuccess();
   });
 
@@ -77,6 +83,7 @@ describe('Sidebar settings menu', () => {
         credentials: 'include',
       });
     });
+    expect(broadcastVchatEvent).toHaveBeenCalledWith({ type: 'auth:logout' });
     expect(refresh).toHaveBeenCalled();
     expect(replace).toHaveBeenCalledWith('/auth');
   });

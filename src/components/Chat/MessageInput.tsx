@@ -31,6 +31,7 @@ export const MessageInput: React.FC<MessageInputProps> = React.memo(
     const [isUploading, setIsUploading] = useState(false);
     const [openMenu, setOpenMenu] = useState<string | null>(null);
     const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+    const isSendingRef = useRef(false);
     const { selectedFile, previewUrl, handleImageSelect, clearImage } = useImageHandling();
 
     const canSend =
@@ -67,14 +68,9 @@ export const MessageInput: React.FC<MessageInputProps> = React.memo(
     // sendMessage：校验输入内容，整理图片数据，并调用外部发送回调。
     const sendMessage = async () => {
       const content = inputText.trim();
-      if (!selectedModel || (!content && !selectedFile)) return;
+      if (isSendingRef.current || !selectedModel || (!content && !selectedFile)) return;
 
-      setInputText('');
-      clearImage();
-      if (textareaRef.current) {
-        textareaRef.current.style.height = 'auto';
-      }
-
+      isSendingRef.current = true;
       setIsUploading(true);
       let finalImageUrl: string | undefined;
 
@@ -86,9 +82,16 @@ export const MessageInput: React.FC<MessageInputProps> = React.memo(
         if (onSend) {
           await onSend({ content, image: finalImageUrl });
         }
+
+        setInputText('');
+        clearImage();
+        if (textareaRef.current) {
+          textareaRef.current.style.height = 'auto';
+        }
       } catch (error) {
         console.error('Send message failed:', error);
       } finally {
+        isSendingRef.current = false;
         setIsUploading(false);
       }
     };

@@ -2,10 +2,16 @@ import { expect, test } from '@playwright/test';
 
 test.describe('/auth', () => {
   async function switchToRegister(page: import('@playwright/test').Page) {
-    await page.locator('button[type="button"]').filter({ has: page.locator('text=/./') }).nth(1).click();
+    // 当前页面的登录/注册 tab 没有稳定 testid，这里只在 tab 区域用最小 nth 定位注册按钮。
+    await page
+      .locator('button[type="button"]')
+      .filter({ has: page.locator('text=/./') })
+      .nth(1)
+      .click();
   }
 
   test('opens the auth page with the login form ready', async ({ page }) => {
+    // 验证默认进入 /auth 时，登录表单和提交按钮已经可以使用。
     await page.goto('/auth');
 
     await expect(page).toHaveURL(/\/auth$/);
@@ -19,6 +25,7 @@ test.describe('/auth', () => {
   test('switches to register and shows client-side validation', async ({ page }) => {
     await page.goto('/auth');
 
+    // 切到注册模式后空提交，应由前端校验直接展示错误提示，不需要请求后端。
     await switchToRegister(page);
     await expect(page.locator('input[autocomplete="username"]')).toBeVisible();
     await expect(page.locator('input[autocomplete="new-password"]')).toBeVisible();
@@ -28,6 +35,7 @@ test.describe('/auth', () => {
   });
 
   test('shows the login api error message', async ({ page }) => {
+    // mock 登录接口失败，确认服务端错误会展示给用户。
     await page.route('**/api/auth/login', async (route) => {
       await route.fulfill({
         status: 401,
@@ -45,6 +53,7 @@ test.describe('/auth', () => {
   });
 
   test('shows the register api error message', async ({ page }) => {
+    // mock 注册接口失败，确认注册页也能正确展示接口错误。
     await page.route('**/api/auth/register', async (route) => {
       await route.fulfill({
         status: 409,

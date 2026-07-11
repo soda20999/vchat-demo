@@ -46,9 +46,13 @@ export function jsonExceptionResponse(
   return jsonErrorResponse(getErrorMessage(error, fallback), code);
 }
 
-export function streamResponse(stream: ReadableStream<Uint8Array>, headers?: HeadersInit) {
+export function streamResponse(
+  stream: ReadableStream<Uint8Array>,
+  headers?: HeadersInit,
+  status = 200,
+) {
   return new Response(stream, {
-    status: 200,
+    status,
     headers: {
       'Content-Type': 'text/event-stream; charset=utf-8',
       'Cache-Control': 'no-cache, no-transform',
@@ -59,7 +63,7 @@ export function streamResponse(stream: ReadableStream<Uint8Array>, headers?: Hea
   });
 }
 
-export function streamErrorResponse(message: string) {
+export function streamErrorResponse(message: string, status = 200) {
   return streamResponse(
     new ReadableStream<Uint8Array>({
       start(controller) {
@@ -72,6 +76,8 @@ export function streamErrorResponse(message: string) {
         controller.close();
       },
     }),
+    undefined,
+    status,
   );
 }
 
