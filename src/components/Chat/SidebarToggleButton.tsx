@@ -13,6 +13,8 @@ export function SidebarToggleButton({ expanded, onToggle }: SidebarToggleButtonP
       <button
         type="button"
         aria-label={expanded ? '收起菜单' : '展开菜单'}
+        aria-expanded={expanded}
+        data-testid="sidebar-toggle"
         onClick={onToggle}
         className={`flex shrink-0 items-center justify-center rounded-full text-[#d4d4d4] transition-colors hover:text-white ${
           expanded ? 'h-8 w-8' : 'h-9 w-9 bg-[#2b2b2b]'

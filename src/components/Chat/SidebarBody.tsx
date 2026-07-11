@@ -53,6 +53,7 @@ export function SidebarBody({
         <button
           type="button"
           aria-label="发起新对话"
+          data-testid="new-conversation-button"
           onClick={onNewConversation}
           className="flex h-9 w-9 items-center justify-center rounded-xl text-[#d4d4d4] transition-colors hover:bg-[#2a2a2a] hover:text-white"
         >
@@ -71,6 +72,7 @@ export function SidebarBody({
       <div className="mt-5 space-y-1">
         <SidebarButton
           icon={<Icon icon={NEW_CHAT_ACTION.icon} className="h-4.5 w-4.5 text-[#d4d4d4]" />}
+          data-testid="new-conversation-button"
           onClick={onNewConversation}
           textClassName="font-semibold text-[#d6d6d6]"
         >

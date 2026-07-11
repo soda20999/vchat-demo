@@ -8,6 +8,7 @@ import { SidebarButton } from '@/components/Ui/SidebarButton';
 import { useChatStore } from '@/stores/chatStore';
 
 type ConversationItemProps = {
+  id: number;
   // active：当前项是否为正在查看的会话。
   active: boolean;
   // title：会话标题。
@@ -20,8 +21,9 @@ type ConversationItemProps = {
  * 函数名：ConversationItem
  * 简单介绍：展示单个会话条目，并根据 active 显示选中样式。
  */
-const ConversationItem = React.memo(({ active, title, onClick }: ConversationItemProps) => (
+const ConversationItem = React.memo(({ id, active, title, onClick }: ConversationItemProps) => (
   <SidebarButton
+    data-testid={`conversation-item-${id}`}
     onClick={onClick}
     active={active}
     suffix={<Icon icon="lucide:pin" className="h-3.5 w-3.5 text-[#bdbdbd]" />}
@@ -63,6 +65,7 @@ export const ConversationList: React.FC = () => {
       {conversations.map((item) => (
         <ConversationItem
           key={item.id}
+          id={item.id}
           active={currentConversationId === item.id}
           title={item.title}
           onClick={() => handleSelectConversation(item.id)}

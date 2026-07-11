@@ -148,6 +148,7 @@ export function RoleRadialMenu({ conversationId }: RoleRadialMenuProps) {
                 key={role.id}
                 type="button"
                 aria-label={selected ? '默认角色' : role.label}
+                data-testid={selected ? 'role-option-default' : `role-option-${role.id}`}
                 onClick={() => (selected ? resetRole() : applyRole(role))}
                 onMouseEnter={() => setHoveredRoleId(selected ? null : role.id)}
                 className={`absolute left-1/2 top-1/2 z-20 flex aspect-square h-16 w-16 items-center justify-center rounded-full p-0 text-white ring-2 ring-white/80 ${
@@ -173,6 +174,7 @@ export function RoleRadialMenu({ conversationId }: RoleRadialMenuProps) {
         type="button"
         aria-label="AI 角色"
         aria-expanded={open}
+        data-testid="role-menu-trigger"
         onClick={() => setOpen((value) => !value)}
         className={`relative z-30 flex aspect-square shrink-0 items-center justify-center rounded-full p-0 text-white shadow-xl ring-2 transition-[width,height,background-color] ${
           selectedRole

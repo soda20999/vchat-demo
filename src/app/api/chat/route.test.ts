@@ -62,12 +62,13 @@ const messageService = await import('@/db/service/message');
 const summarizer = await import('@/ai/context/summarizer');
 const { POST } = await import('./route');
 
-function createChatRequest(body: object) {
+function createChatRequest(body: object, headers: Record<string, string> = {}) {
   return new Request('http://localhost/api/chat', {
     method: 'POST',
     headers: {
       'content-type': 'application/json',
       'x-user-id': 'user-1',
+      ...headers,
     },
     body: JSON.stringify({ ...DEFAULT_CHAT_BODY, ...body }),
   });
@@ -147,7 +148,55 @@ describe('POST /api/chat prompt settings', () => {
         providerName: 'deepseek',
       })
     );
+    expect(messageService.createMessage).toHaveBeenNthCalledWith(
+      1,
+      7,
+      expect.any(String),
+      'question',
+      'finished',
+      undefined,
+    );
+    expect(messageService.createMessage).toHaveBeenNthCalledWith(
+      2,
+      7,
+      '',
+      'answer',
+      'loading',
+    );
     expect(releaseGovernance).toHaveBeenCalled();
+  });
+
+  it('passes body requestId to the Redis chat guard', async () => {
+    const response = await POST(
+      createChatRequest(
+        { requestId: 'body-request-1' },
+        { 'idempotency-key': 'header-request-1' },
+      ),
+    );
+
+    await readStream(response);
+
+    expect(createChatRequestGuard).toHaveBeenCalledWith(
+      expect.objectContaining({
+        requestId: 'body-request-1',
+        idempotencyKey: 'header-request-1',
+      }),
+    );
+  });
+
+  it('keeps legacy requests without requestId compatible', async () => {
+    const response = await POST(createChatRequest({}));
+
+    await readStream(response);
+
+    expect(response.status).toBe(200);
+    expect(createChatRequestGuard).toHaveBeenCalledWith(
+      expect.objectContaining({
+        requestId: null,
+        idempotencyKey: null,
+      }),
+    );
+    expect(streamChat).toHaveBeenCalled();
   });
 
   it('lets frontend prompt settings override backend template defaults', async () => {
@@ -179,14 +228,60 @@ describe('POST /api/chat prompt settings', () => {
     createChatRequestGuard.mockResolvedValue({
       allowed: false,
       message: 'AI request rate limit exceeded',
+      status: 409,
     });
 
     const response = await POST(createChatRequest({}));
     const output = await readStream(response);
 
     expect(output).toContain('AI request rate limit exceeded');
+    expect(response.status).toBe(409);
     expect(messageService.createMessage).not.toHaveBeenCalled();
     expect(streamChat).not.toHaveBeenCalled();
     expect(releaseGovernance).not.toHaveBeenCalled();
+  });
+
+  it('returns 409 and the conversation lock message when the same conversation is replying', async () => {
+    createChatRequestGuard.mockResolvedValue({
+      allowed: false,
+      message: '当前会话正在回复中，请稍后再发送',
+      status: 409,
+    });
+
+    const response = await POST(createChatRequest({ conversationId: 8 }));
+    const output = await readStream(response);
+
+    expect(response.status).toBe(409);
+    expect(output).toContain('当前会话正在回复中，请稍后再发送');
+    expect(messageService.createMessage).not.toHaveBeenCalled();
+    expect(streamChat).not.toHaveBeenCalled();
+    expect(releaseGovernance).not.toHaveBeenCalled();
+  });
+
+  it('releases governance when the AI provider fails during streaming', async () => {
+    streamChat.mockRejectedValue(new Error('model failed'));
+
+    const response = await POST(createChatRequest({}));
+    const output = await readStream(response);
+
+    expect(output).toContain('model failed');
+    expect(releaseGovernance).toHaveBeenCalledTimes(1);
+    expect(messageService.updateMessage).toHaveBeenCalledWith(
+      12,
+      expect.objectContaining({ status: 'error' }),
+    );
+  });
+
+  it('releases governance when database preparation fails after the guard is acquired', async () => {
+    vi.mocked(messageService.getConversationMessages).mockRejectedValueOnce(
+      new Error('history failed'),
+    );
+
+    const response = await POST(createChatRequest({}));
+    const output = await readStream(response);
+
+    expect(output).toContain('history failed');
+    expect(releaseGovernance).toHaveBeenCalledTimes(1);
+    expect(streamChat).not.toHaveBeenCalled();
   });
 });

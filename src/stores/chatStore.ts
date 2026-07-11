@@ -3,6 +3,7 @@ import { produce } from 'immer';
 
 import { LOCAL_PROVIDERS } from '@/config/providers';
 import { consumeChatStream } from '@/lib/chat-stream-client';
+import { broadcastVchatEvent } from '@/lib/vchat-broadcast';
 import type { ChatStreamEvent } from '@/lib/sse-stream';
 import type {
   ApiResponseEnvelope,
@@ -28,6 +29,8 @@ let historyRequestId = 0;
 
 // 【流式请求控制器】当前正在生成回答的请求控制器（AbortController 实例），用于点击 Stop 按钮时中断正在进行的 fetch 流。
 let activeAbortController: AbortController | null = null;
+let isSendingMessage = false;
+const CHAT_CONFLICT_MESSAGE = '当前会话正在回复中，请稍后再发送';
 
 function getValidSelectedModel(selectedModel: string, providers: Provider[]) {
   const hasModel = providers.some((provider) => provider.models?.includes(selectedModel));
@@ -62,6 +65,7 @@ interface ChatState {
   };
   isInitialized: boolean;
   initialize: () => Promise<void>;
+  refreshConversations: () => Promise<void>;
   sendMessage: (payload: { content: string; image?: string }) => Promise<void>;
   stopGeneration: () => void;
   retryAnswer: (answerId: number) => Promise<void>;
@@ -228,6 +232,24 @@ export const useChatStore = create<ChatState>((set, get) => ({
     return initializePromise;
   },
 
+  refreshConversations: async () => {
+    try {
+      const conversationData = await fetchApi<ConversationDto[]>('/api/conversations');
+      const conversations = conversationData.map(hydrateConversation);
+
+      set(
+        produce<ChatState>((draft) => {
+          draft.conversations = conversations;
+          if (draft.providers.length > 0) {
+            draft.selectedModel = getValidSelectedModel(draft.selectedModel, draft.providers);
+          }
+        }),
+      );
+    } catch (error) {
+      console.error('Refresh conversations failed:', error);
+    }
+  },
+
   /**
    * 函数名翻译：发送消息
    * 做的事：发送用户消息的核心逻辑。1. 若是新会话则生成临时 ID 乐观渲染；2. 立即将用户消息与 AI 的 loading 占位消息插入列表；3. 请求后端 SSE 流式接口，并实时更新 AI 消息。
@@ -242,9 +264,12 @@ export const useChatStore = create<ChatState>((set, get) => ({
     const trimmedContent = content.trim();
 
     if (!trimmedContent && !image) return;
+    if (isSendingMessage) return;
     if (!state.selectedModel) {
       throw new Error('Please select a model first');
     }
+
+    isSendingMessage = true;
 
     let conversationIdForUi = state.currentConversationId;
 
@@ -290,7 +315,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
     activeAbortController = abortController;
 
     try {
+      const requestId = crypto.randomUUID();
       const requestPayload: SendMessagePayload = {
+        requestId,
         conversationId:
           typeof state.currentConversationId === 'number' && state.currentConversationId > 0
             ? state.currentConversationId
@@ -308,18 +335,20 @@ export const useChatStore = create<ChatState>((set, get) => ({
         signal: abortController.signal,
         headers: {
           'Content-Type': 'application/json',
+          'idempotency-key': requestId,
         },
         body: JSON.stringify(requestPayload),
       });
 
       if (!response.ok) {
-        let errorMessage = 'Chat request failed';
+        let errorMessage = response.status === 409 ? CHAT_CONFLICT_MESSAGE : 'Chat request failed';
         try {
           const errorJson = await response.json();
-          errorMessage = errorJson?.message || errorMessage;
+          errorMessage =
+            response.status === 409 ? CHAT_CONFLICT_MESSAGE : errorJson?.message || errorMessage;
         } catch {
           const errorText = await response.text();
-          if (errorText) errorMessage = errorText;
+          if (response.status !== 409 && errorText) errorMessage = errorText;
         }
         throw new Error(errorMessage);
       }
@@ -329,7 +358,12 @@ export const useChatStore = create<ChatState>((set, get) => ({
       }
 
       // 内部辅助方法：根据服务端事件类型更新当前 AI 消息：追加文本、完成流或标记错误。
+      const shouldApplyStreamEvent = () =>
+        get().currentConversationId === conversationIdForUi &&
+        get().messages.some((message) => message.id === activeAnswerId);
+
       const handleStreamEvent = (event: ChatStreamEvent) => {
+        if (!shouldApplyStreamEvent()) return;
         if (event.type === 'metadata') {
           if (typeof conversationIdForUi === 'number' && conversationIdForUi < 0) {
             get().assignNewConversationId(
@@ -342,6 +376,12 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
           get().replaceMessageId(userMessage.id, event.userMessageId);
           get().replaceMessageId(activeAnswerId, event.aiMessageId);
+          broadcastVchatEvent({
+            type: 'message:created',
+            conversationId: event.conversationId,
+            messageId: event.userMessageId,
+          });
+          broadcastVchatEvent({ type: 'conversation:updated', conversationId: event.conversationId });
           activeAnswerId = event.aiMessageId;
           return;
         }
@@ -353,6 +393,15 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
         if (event.type === 'done') {
           get().updateMessageStatus(activeAnswerId, 'finished');
+          broadcastVchatEvent({
+            type: 'message:finished',
+            conversationId: conversationIdForUi ?? undefined,
+            messageId: activeAnswerId,
+          });
+          broadcastVchatEvent({
+            type: 'conversation:updated',
+            conversationId: conversationIdForUi ?? undefined,
+          });
           return;
         }
 
@@ -374,7 +423,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
       console.error('Send message failed:', error);
       const errorMessage = error instanceof Error ? error.message : 'Chat request failed';
       get().updateMessageError(activeAnswerId, errorMessage);
+      throw error instanceof Error ? error : new Error(errorMessage);
     } finally {
+      isSendingMessage = false;
       if (activeAbortController === abortController) {
         activeAbortController = null;
       }
@@ -413,10 +464,14 @@ export const useChatStore = create<ChatState>((set, get) => ({
       }),
     );
 
-    await get().sendMessage({
-      content: question.content,
-      image: question.image,
-    });
+    try {
+      await get().sendMessage({
+        content: question.content,
+        image: question.image,
+      });
+    } catch (error) {
+      console.error('Retry answer failed:', error);
+    }
   },
 
   /**
