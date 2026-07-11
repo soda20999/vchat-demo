@@ -6,9 +6,9 @@ export type AccessTokenPayload = {
 };
 
 function getAccessTokenSecret() {
-  const secret = process.env.ACCESS_TOKEN_SECRET;
+  const secret = process.env.JWT_ACCESS_SECRET || process.env.ACCESS_TOKEN_SECRET;
   if (!secret) {
-    throw new Error('ACCESS_TOKEN_SECRET is missing');
+    throw new Error('JWT_ACCESS_SECRET is missing');
   }
   return new TextEncoder().encode(secret);
 }

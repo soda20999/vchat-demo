@@ -125,6 +125,7 @@ export const MessageInput: React.FC<MessageInputProps> = React.memo(
             variant="solid"
             className="rounded-full"
             onClick={() => void sendMessage()}
+            data-testid="chat-send-button"
           />
         </div>
       </div>

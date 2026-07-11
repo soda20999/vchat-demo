@@ -25,6 +25,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 ## 默认质量流程
 
 - 不管是什么操作，如果出现网络连接错误或者下载失败或者电脑没有环境或者应用之类的无法进行下去的问题，直接停下来询问用户，不要卡在哪里几分钟最终放弃
+- 不论修改代码还是增加文件，必须按照一个模块或者一些相关的内容来修改或者新增代码，不需要每次都只改一个文件或者一次性把所有需要改的代码都改了，必须分类分层次
 - 不管是否使用多 agent，任何代码或配置改动都必须先读相关文件，理解现有实现和调用关系后再修改。
 - 单线程执行时也必须包含三步：代码查看、实现修改、代码 review/验证。
 - 代码查看：修改前阅读直接相关文件、类型、测试和现有调用方；涉及 Next.js API 时先读 `node_modules/next/dist/docs/` 相关文档。
@@ -127,6 +128,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 
 ```md
 写测试：
+
 - 类型：v / p
 - 目标：要测试的组件、hook、store、工具函数或页面流程
 - 场景：用户操作、函数输入或 bug 复现步骤
